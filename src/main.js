@@ -41,18 +41,17 @@ function setupNavigation() {
   });
 }
 
-// BACKUP & RESTORE LOGIC
+// BACKUP LOGIC
 async function exportData() {
-  const bairros = await db.bairros.toArray();
-  const clientes = await db.clientes.toArray();
-  const equipamentos = await db.equipamentos.toArray();
-  const manutencoes = await db.manutencoes.toArray();
-  const backup = { bairros, clientes, equipamentos, manutencoes, date: new Date().toISOString() };
+  const b = await db.bairros.toArray();
+  const c = await db.clientes.toArray();
+  const e = await db.equipamentos.toArray();
+  const m = await db.manutencoes.toArray();
+  const backup = { bairros: b, clientes: c, equipamentos: e, manutencoes: m, date: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `backup_arjampa_${new Date().toISOString().split('T')[0]}.json`;
+  a.href = url; a.download = `backup_arjampa_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
   localStorage.setItem('jampa_last_backup', new Date().getTime());
   renderDashboard();
@@ -68,9 +67,8 @@ async function importData(file) {
       if (data.clientes) await db.clientes.bulkAdd(data.clientes);
       if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos);
       if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes);
-      alert('Backup Restaurado com Sucesso!');
-      location.reload();
-    } catch (err) { alert('Arquivo Inválido ou Corrompido!'); }
+      alert('Backup Restaurado!'); location.reload();
+    } catch (err) { alert('Erro no arquivo!'); }
   };
   reader.readAsText(file);
 }
@@ -94,24 +92,20 @@ async function renderDashboard(sortBy = 'proximas') {
     </div>
   `;
 
-  // BACKUP ALERT CARD
   const lastBackup = localStorage.getItem('jampa_last_backup');
   const now = new Date().getTime();
-  const oneDay = 24 * 60 * 60 * 1000;
-  let backupAlert = '';
-  if (!lastBackup || (now - lastBackup) > oneDay) {
-    backupAlert = `
-      <div id="backup-alert" class="animate-in" style="background: linear-gradient(135deg, #ff9d00, #ff5e00); padding: 14px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; color: white; cursor: pointer; box-shadow: 0 8px 20px rgba(255, 157, 0, 0.2);">
+  if (!lastBackup || (now - lastBackup) > 86400000) {
+    headerContent.innerHTML += `
+      <div id="backup-alert" class="animate-in" style="background: linear-gradient(135deg, #ff9d00, #ff5e00); padding: 14px; border-radius: 12px; margin-top: 15px; display: flex; align-items: center; gap: 12px; color: white; cursor: pointer;">
         <span class="material-symbols-rounded">security</span>
-        <div style="flex: 1;"><p style="margin:0; font-size: 11px; font-weight: 800; text-transform:uppercase;">Proteção Necessária</p><p style="margin:0; font-size: 9px; opacity: 0.9;">Clique para fazer o backup dos dados agora.</p></div>
-        <span class="material-symbols-rounded" style="font-size:18px;">arrow_forward_ios</span>
-      </div>
-    `;
+        <div style="flex: 1;"><p style="margin:0; font-size: 11px; font-weight: 800;">PROTEÇÃO NECESSÁRIA</p><p style="margin:0; font-size: 9px; opacity: 0.9;">Toque para fazer o backup agora.</p></div>
+        <span class="material-symbols-rounded">arrow_forward_ios</span>
+      </div>`;
   }
 
   const eqs = await db.equipamentos.toArray();
   const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
-  let html = backupAlert + '<div class="dashboard-grid animate-in">';
+  let html = '<div class="dashboard-grid animate-in">';
   
   if (sortBy === 'bairro') {
     const bairros = await db.bairros.toArray();
@@ -128,7 +122,7 @@ async function renderDashboard(sortBy = 'proximas') {
         <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
           <div style="display: flex; align-items: center; gap: 15px;">
             <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
-            <div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
+            <div style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
             <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
           </div>
           <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">REGISTRAR</button></div>
@@ -137,7 +131,7 @@ async function renderDashboard(sortBy = 'proximas') {
   }
   mainContent.innerHTML = html + '</div>';
   const sSel = document.getElementById('d-s'); if (sSel) sSel.onchange = (e) => renderDashboard(e.target.value);
-  const bAlert = document.getElementById('backup-alert'); if (bAlert) bAlert.onclick = exportData;
+  const bA = document.getElementById('backup-alert'); if (bA) bA.onclick = exportData;
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
@@ -151,13 +145,7 @@ async function renderBairros() {
     const cids = clients.map(c => c.id);
     const eqsInB = await db.equipamentos.where('clienteId').anyOf(cids).toArray();
     const totalAtrasados = eqsInB.filter(e => new Date(e.proximaManutencao) <= today).length;
-    html += `
-      <div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; background: rgba(255,255,255,0.02); padding: 18px;">
-        <h3 style="margin:0; font-size:14px; text-transform:uppercase;">${b.nome}</h3>
-        <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
-           <span style="font-size:11px; font-weight:700; color:var(--text-secondary);">${totalAtrasados} PENDENTES</span>
-        </div>
-      </div>`;
+    html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; background: rgba(255,255,255,0.02); padding: 18px;"><h3 style="margin:0; font-size:14px; text-transform:uppercase;">${b.nome}</h3><p style="font-size:11px; font-weight:700; opacity:0.6; margin-top:10px;">${totalAtrasados} PENDENTES</p></div>`;
   }
   mainContent.innerHTML = html + '</div>';
   document.getElementById('b-n-b').onclick = () => renderBairroForm();
@@ -171,12 +159,7 @@ async function renderHistorico() {
   for (const m of os) {
     const e = await db.equipamentos.get(m.equipamentoId);
     const c = e ? await db.clientes.get(e.clienteId) : null;
-    html += `
-      <div class="card">
-        <h4 style="margin:0; font-size:15px;">${c?.nome}</h4>
-        <p style="font-size:10px; color:var(--primary); font-weight:700; margin-top:5px;">${e?.marca} • ${new Date(m.dataRealizada).toLocaleDateString()}</p>
-        <p style="font-size: 13px; font-style: italic; background:rgba(0,0,0,0.1); padding:10px; border-radius:10px; margin-top:10px;">${m.descricao}</p>
-      </div>`;
+    html += `<div class="card"><h4 style="margin:0; font-size:15px;">${c?.nome}</h4><p style="font-size:10px; color:var(--primary); font-weight:700; margin-top:5px;">${e?.marca} • ${new Date(m.dataRealizada).toLocaleDateString()}</p><p style="font-size: 13px; font-style: italic; background:rgba(0,0,0,0.1); padding:10px; border-radius:10px; margin-top:10px;">${m.descricao}</p></div>`;
   }
   mainContent.innerHTML = html + '</div>';
 }
@@ -184,7 +167,7 @@ async function renderHistorico() {
 async function renderBairroDetail(bId, from = 'home') {
   const b = await db.bairros.get(Number(bId));
   const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Clientes</p></div></div>`;
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Gerenciando Clientes</p></div></div>`;
   let html = '<div class="animate-in">';
   for (const c of cs) {
     const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
@@ -195,9 +178,9 @@ async function renderBairroDetail(bId, from = 'home') {
           <a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-          ${es.map(e => `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center;"><img src="${getLogo(e.marca)}" style="width: 24px; height:24px; object-fit:contain;" /><p style="font-size: 9px; margin: 5px 0; font-weight:800;">${e.localizacao}</p><button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px; margin: 0 auto; background:var(--primary); color:black;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button></div>`).join('')}
+          ${es.map(e => `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center; border: 1px solid var(--glass-border);"><img src="${getLogo(e.marca)}" style="width: 24px; height:24px; object-fit:contain;" /><p style="font-size: 9px; margin: 5px 0; font-weight:800;">${e.localizacao}</p><button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px; margin: 0 auto; background:var(--primary); color:black;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button></div>`).join('')}
         </div>
-        <button class="btn-primary" style="margin-top: 15px; width:100%; font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ NOVO AR</button>
+        <button class="btn-primary" style="margin-top: 15px; width:100%; font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ CADASTRAR NOVO AR</button>
       </div>`;
   }
   mainContent.innerHTML = html + '</div>';
@@ -228,6 +211,7 @@ async function renderPropertyForm() {
   };
 }
 
+// RESTORING FULL EQUIPMENT FORM
 async function renderEquipmentForm(id = null, preCId = null) {
   const eq = id ? await db.equipamentos.get(id) : null;
   openModal(id ? 'Editar Ar' : 'Novo Ar');
@@ -235,21 +219,24 @@ async function renderEquipmentForm(id = null, preCId = null) {
   const r = () => {
     modalBody.innerHTML = `
       <form id="f-e">
+        <label style="font-size:10px; font-weight:800; color:var(--primary); margin-bottom:12px; display:block; letter-spacing:1px; text-transform:uppercase;">Marca</label>
         <div class="brand-grid" style="margin-bottom: 20px;">
-          ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
+          ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2.5px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
            <div class="form-group"><label>Capacidade</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
-           <div class="form-group"><label>Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Sala"></div>
+           <div class="form-group"><label>Unidade / Apt</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Sala 201"></div>
         </div>
-        <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">SALVAR</button>
+        <div class="form-group" style="margin-top:10px;"><label>Modelo / Ref</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter, Split"></div>
+        <div class="form-group" style="margin-top:10px;"><label>Localização</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Varanda, Quarto"></div>
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">SALVAR EQUIPAMENTO</button>
       </form>`;
     document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
     document.getElementById('f-e').onsubmit = async (e) => {
       e.preventDefault();
-      const d = { marca: sB, btu: Number(document.getElementById('e-b').value), modelo: '', localizacao: document.getElementById('e-u').value, unidade: document.getElementById('e-u').value, clienteId: preCId || eq?.clienteId };
+      const d = { marca: sB, btu: Number(document.getElementById('e-b').value), modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: preCId || eq?.clienteId };
       if (id) await db.equipamentos.update(id, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() });
-      closeModal(); renderDashboard();
+      closeModal(); if (preCId) renderBairroDetail(preCId, 'bairros'); else renderDashboard();
     };
   };
   r();
@@ -298,10 +285,7 @@ function renderMais() {
       <div class="card">
         <label style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 15px; display: block;">Escolha seu Avatar</label>
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-          ${avatarSeeds.map(s => `
-            <div class="avatar-option ${currentAvatar === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; overflow: hidden; border: 2px solid ${currentAvatar === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03);">
-              <img src="${getAvatarUrl(s)}" style="width: 100%; display: block;" />
-            </div>`).join('')}
+          ${avatarSeeds.map(s => `<div class="avatar-option ${currentAvatar === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; overflow: hidden; border: 2px solid ${currentAvatar === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03);"><img src="${getAvatarUrl(s)}" style="width: 100%; display: block;" /></div>`).join('')}
         </div>
       </div>
       <div class="card">
@@ -309,18 +293,13 @@ function renderMais() {
         <div class="form-group" style="margin-top:10px;"><label>Nome do App</label><input type="text" id="p-a" class="form-control" value="${an}"></div>
         <button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR AJUSTES</button>
       </div>
-
       <div class="card" style="background: rgba(0, 242, 255, 0.03); border-color: var(--primary-glow);">
         <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--primary); text-transform: uppercase;">BACKUP E SEGURANÇA</h3>
-        <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Mantenha seus dados seguros. Exportar gera um arquivo que você pode guardar fora do celular.</p>
         <div style="display: flex; gap: 10px;">
           <button class="btn-primary" id="b-exp" style="flex: 1;">EXPORTAR</button>
-          <label class="btn-primary" style="flex: 1; background: #1e293b; color: var(--primary); cursor: pointer; text-align:center;">
-             RESTAURAR <input type="file" id="b-imp" style="display: none;" accept=".json">
-          </label>
+          <label class="btn-primary" style="flex: 1; background: #1e293b; color: var(--primary); cursor: pointer; text-align:center;">RESTAURAR <input type="file" id="b-imp" style="display: none;" accept=".json"></label>
         </div>
       </div>
-
       <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;">
         <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--secondary); text-transform: uppercase;">SOBRE O SISTEMA</h3>
         <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
@@ -329,9 +308,7 @@ function renderMais() {
           <p style="margin:0;"><b>Ano:</b> 2026</p>
         </div>
         <div style="margin-top: 20px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
-          <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366;">
-            CONTATO SUPORTE
-          </a>
+          <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366;">CONTATO SUPORTE</a>
         </div>
       </div>
     </div>`;
