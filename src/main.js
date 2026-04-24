@@ -1,6 +1,5 @@
 import { db, seedDatabase } from './db';
 
-// --- CONFIG & DOM ---
 const mainContent = document.getElementById('main-content');
 const headerContent = document.getElementById('header-content');
 const navItems = document.querySelectorAll('.nav-item');
@@ -16,15 +15,11 @@ const btus = [9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000];
 const avatarSeeds = ['Felix', 'Leo', 'Max', 'Oliver', 'Jack', 'Charlie', 'Milo', 'Oscar', 'Jasper', 'Harry', 'Theo', 'Noah'];
 const getAvatarUrl = (s) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
 
-// --- CORE FUNCTIONS ---
 function openModal(title) { if (modalTitle) modalTitle.textContent = title; if (modalOverlay) modalOverlay.classList.add('active'); }
 function closeModal() { if (modalOverlay) modalOverlay.classList.remove('active'); }
 if (closeModalBtn) closeModalBtn.onclick = closeModal;
 
-const getLogo = (m) => { 
-  const n = (m || 'Samsung').toLowerCase(); 
-  return `brands/${n}.${n === 'samsung' ? 'jpg' : 'png'}`; 
-};
+const getLogo = (m) => { const n = (m || 'Samsung').toLowerCase(); return `brands/${n}.${n === 'samsung' ? 'jpg' : 'png'}`; };
 
 function setupNavigation() {
   navItems.forEach(item => {
@@ -40,7 +35,6 @@ function setupNavigation() {
   });
 }
 
-// --- SHARED RENDER LOGIC ---
 window.renderEquipmentHistory = async function(eqId) {
   try {
     const eq = await db.equipamentos.get(Number(eqId));
@@ -80,15 +74,15 @@ window.importData = () => {
   input.click();
 };
 
-// --- VIEW RENDERS ---
 async function renderDashboard(searchTerm = '') {
   try {
     const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
     const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
+    const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
     if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
     const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(av);
     
-    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><span style="font-size:10px; opacity:0.5; font-weight:700;">AR JAMPA PRO</span></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div></div>`;
+    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><span style="font-size:10px; color:var(--primary); font-weight:800; letter-spacing:1px;">${appN}</span></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente ou local..." value="${searchTerm}"></div></div>`;
     const sInp = document.getElementById('main-search'); if (sInp) { sInp.oninput = (e) => renderDashboard(e.target.value); sInp.focus(); }
 
     let html = '';
@@ -104,10 +98,11 @@ async function renderDashboard(searchTerm = '') {
     for (const e of sorted) {
       const c = await db.clientes.get(e.clienteId);
       if (!c) continue;
-      if (searchTerm && !c.nome.toLowerCase().includes(lS) && !e.marca.toLowerCase().includes(lS)) continue;
+      if (searchTerm && !c.nome.toLowerCase().includes(lS) && !e.marca.toLowerCase().includes(lS) && !e.localizacao.toLowerCase().includes(lS)) continue;
       const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
+      const ult = e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma';
       const prox = new Date(e.proximaManutencao).toLocaleDateString();
-      html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma'}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${prox}</p></div></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1; font-size:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; font-size:10px; background:#ff9d00; color:black;">CORRETIVA</button></div></div>`;
+      html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${ult}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${prox}</p></div></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1; font-size:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; font-size:10px; background:#ff9d00; color:black;">CORRETIVA</button></div></div>`;
     }
     mainContent.innerHTML = html + '</div>';
     document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Preventiva'));
@@ -117,7 +112,7 @@ async function renderDashboard(searchTerm = '') {
 
 async function renderBairros(searchTerm = '') {
   try {
-    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 22px; margin:0;">CADASTRAR</h2><button class="btn-primary" id="b-n-b" style="width:auto; font-size:10px; padding: 6px 12px;">+ NOVO EDIFÍCIO</button></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar..." value="${searchTerm}"></div></div>`;
+    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 22px; margin:0;">CADASTRAR</h2><button class="btn-primary" id="b-n-b" style="width:auto; font-size:10px; padding: 6px 12px;">+ NOVO EDIFÍCIO</button></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar edifício ou zona..." value="${searchTerm}"></div></div>`;
     const bsInp = document.getElementById('bairro-search'); if (bsInp) { bsInp.oninput = (e) => renderBairros(e.target.value); bsInp.focus(); }
     const bnb = document.getElementById('b-n-b'); if (bnb) bnb.onclick = () => renderBairroForm();
     const bairros = await db.bairros.toArray();
@@ -165,14 +160,29 @@ async function renderHistorico() {
 
 async function renderMais() {
   const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
+  const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
   const curAv = localStorage.getItem('jampa_tech_avatar') || 'Felix';
   headerContent.innerHTML = '<h2>AJUSTES</h2><p>Sistema</p>';
-  mainContent.innerHTML = `<div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;"><div class="card"><label style="font-size:11px; font-weight:800; color:var(--primary); margin-bottom:15px; display:block;">Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${curAv === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; border: 2px solid ${curAv === s ? 'var(--primary)' : 'transparent'};"><img src="${getAvatarUrl(s)}" style="width: 100%;" /></div>`).join('')}</div></div><div class="card"><div class="form-group"><label>Nome</label><input type="text" id="p-t" class="form-control" value="${tech}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR</button></div><div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:12px;">BACKUP</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">BAIXAR</button><button onclick="window.importData()" class="btn-primary" style="background:#1e293b; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTORE</button></div></div></div>`;
+  mainContent.innerHTML = `
+    <div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;">
+      <div class="card"><label>Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top:15px;">${avatarSeeds.map(s => `<div class="avatar-option ${curAv === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; border: 2px solid ${curAv === s ? 'var(--primary)' : 'transparent'};"><img src="${getAvatarUrl(s)}" style="width: 100%; display:block;" /></div>`).join('')}</div></div>
+      <div class="card"><div class="form-group"><label>Nome do Técnico</label><input type="text" id="p-t" class="form-control" value="${tech}"></div><div class="form-group" style="margin-top:15px;"><label>Nome do Aplicativo</label><input type="text" id="p-a" class="form-control" value="${appN}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR ALTERAÇÕES</button></div>
+      <div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:12px;">SEGURANÇA (BACKUP)</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">BAIXAR DADOS</button><button onclick="window.importData()" class="btn-primary" style="background:#1e293b; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTAURAR</button></div></div>
+      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.03); padding: 25px; position: relative; overflow: hidden;">
+        <div style="position: absolute; right: -10px; top: -10px; opacity: 0.05;"><span class="material-symbols-rounded" style="font-size: 80px;">verified_user</span></div>
+        <p style="font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 10px;">Suporte Técnico Premium</p>
+        <p style="font-size: 15px; font-weight: 700; margin: 0;">Leonardo Soprani</p>
+        <p style="font-size: 12px; opacity: 0.6; margin: 4px 0 15px;">Desenvolvedor Full Stack • 2026</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+          <span style="font-size: 10px; font-weight: 800; color: #aaa;">VERSÃO 3.0.5 TITANIUM</span>
+          <a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; color: white; padding: 8px 15px; font-size: 11px; border-radius: 10px;">WHATSAPP</a>
+        </div>
+      </div>
+    </div>`;
   document.querySelectorAll('.avatar-option').forEach(opt => { opt.onclick = () => { localStorage.setItem('jampa_tech_avatar', opt.dataset.seed); renderMais(); }; });
-  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); location.reload(); };
+  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
 }
 
-// --- FORMS ---
 async function renderMaintenanceForm(eqId = null, defaultType = '') {
   const eqs = await db.equipamentos.toArray(); const cls = await db.clientes.toArray();
   openModal(defaultType || 'Registrar Serviço');
@@ -202,7 +212,6 @@ async function renderBairroForm() {
   document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value }); closeModal(); renderBairros(); };
 }
 
-// --- INIT ---
 async function init() {
   try {
     const s = document.getElementById('splash-screen');
