@@ -17,7 +17,11 @@ function openModal(title) { if (modalTitle) modalTitle.textContent = title; if (
 function closeModal() { if (modalOverlay) modalOverlay.classList.remove('active'); }
 if (closeModalBtn) closeModalBtn.onclick = closeModal;
 
-const getLogo = (m) => { const n = (m || 'Samsung').toLowerCase(); return `brands/${n}.${n === 'samsung' ? 'jpg' : 'png'}`; };
+const getLogo = (m) => {
+  const name = (m || 'Samsung').toLowerCase();
+  const ext = (name === 'samsung') ? 'jpg' : 'png';
+  return `brands/${name}.${ext}`;
+};
 
 function setupNavigation() {
   navItems.forEach(item => {
@@ -49,29 +53,6 @@ window.renderEquipmentHistory = async function(eqId) {
   } catch (err) { console.error(err); }
 };
 
-window.exportData = async () => {
-  const data = { bairros: await db.bairros.toArray(), clientes: await db.clientes.toArray(), equipamentos: await db.equipamentos.toArray(), manutencoes: await db.manutencoes.toArray() };
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_jampa.json`; a.click();
-  localStorage.setItem('last_jampa_backup', Date.now().toString()); renderDashboard();
-};
-
-window.importData = () => {
-  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (confirm('Restaurar dados?')) { await db.delete(); await db.open(); if (data.bairros) await db.bairros.bulkAdd(data.bairros); if (data.clientes) await db.clientes.bulkAdd(data.clientes); if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos); if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes); location.reload(); }
-      } catch (err) { alert('Erro'); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-};
-
 async function renderDashboard(searchTerm = '') {
   try {
     const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
@@ -86,7 +67,7 @@ async function renderDashboard(searchTerm = '') {
     let html = '';
     const lastB = localStorage.getItem('last_jampa_backup');
     if (!lastB || (Date.now() - Number(lastB) > 604800000)) {
-      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
+      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px; margin-left:20px; margin-right:20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
     }
 
     const eqs = await db.equipamentos.toArray();
@@ -97,7 +78,7 @@ async function renderDashboard(searchTerm = '') {
       const c = await db.clientes.get(e.clienteId);
       if (!c || (searchTerm && !c.nome.toLowerCase().includes(lS) && !e.marca.toLowerCase().includes(lS))) continue;
       const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
-      html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 12px;"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma'}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${new Date(e.proximaManutencao).toLocaleDateString()}</p></div></div><div style="display: flex; gap: 10px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; background:#ff9d00;">CORRETIVA</button></div></div>`;
+      html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 15px; margin-left:0; margin-right:0;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 12px;"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma'}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${new Date(e.proximaManutencao).toLocaleDateString()}</p></div></div><div style="display: flex; gap: 10px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; background:#ff9d00;">CORRETIVA</button></div></div>`;
     }
     mainContent.innerHTML = html + '</div>';
     document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Preventiva'));
@@ -111,12 +92,12 @@ async function renderBairros(searchTerm = '') {
     const bsInp = document.getElementById('bairro-search'); if (bsInp) bsInp.oninput = (e) => renderBairros(e.target.value);
     const bnb = document.getElementById('b-n-b'); if (bnb) bnb.onclick = () => renderBairroForm();
     const bairros = await db.bairros.toArray();
-    let html = '<div class="dashboard-grid animate-in" style="margin-top:10px;">';
+    let html = '<div class="dashboard-grid animate-in" style="margin-top:10px; padding:0 20px;">';
     const lS = searchTerm.toLowerCase();
     for (const b of bairros) {
       if (searchTerm && !b.nome.toLowerCase().includes(lS)) continue;
       const cls = await db.clientes.where('bairroId').equals(b.id).toArray();
-      html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'};"><h3 style="margin:0; font-size:14px; text-transform:uppercase;">${b.nome}</h3><p style="font-size:11px; font-weight:700; opacity:0.6; margin-top:10px;">${cls.length} UNIDADES</p></div>`;
+      html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; margin:0; padding:15px;"><h3 style="margin:0; font-size:13px; text-transform:uppercase;">${b.nome}</h3><p style="font-size:10px; font-weight:700; opacity:0.6; margin-top:8px;">${cls.length} UNIDADES</p></div>`;
     }
     mainContent.innerHTML = html + '</div>';
   } catch (err) { console.error(err); }
@@ -126,11 +107,11 @@ async function renderBairroDetail(bId, from = 'home') {
   try {
     const b = await db.bairros.get(Number(bId)); if (!b) return renderBairros();
     const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px;"><div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Gerenciar Unidades</p></div></div><button class="btn-primary" onclick="window.renderPropertyForm(${b.id})" style="background: var(--primary); color: black;">+ ADICIONAR NOVA UNIDADE</button></div>`;
+    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px;"><div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Unidades</p></div></div><button class="btn-primary" onclick="window.renderPropertyForm(${b.id})" style="background: var(--primary); color: black;">+ ADICIONAR NOVA UNIDADE</button></div>`;
     let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">';
     for (const c of cs) {
       const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
-      html += `<div class="card" style="border-top: 4px solid var(--primary);"><div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;"><div><h3 style="margin: 0; font-size: 18px; color: white;">${c.nome}</h3><p style="font-size:11px; opacity:0.5; font-weight:700; text-transform:uppercase; margin-top:4px;">APTO • ${c.endereco || '-'}</p></div><a href="https://wa.me/${(c.whatsapp||'').replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366; background: rgba(37,211,102,0.1); border:none;"><span class="material-symbols-rounded">chat</span></a></div><div style="display: flex; flex-direction: column; gap: 10px;">${es.map(e => { const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000); return `<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;"><div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;"><div style="width:32px; height:32px; background:white; border-radius:8px; padding:6px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div style="flex:1;"><h4 style="margin:0; font-size:13px;">${e.localizacao}</h4><p style="font-size:9px; opacity:0.5; font-weight:700;">${e.btu} BTU</p></div><p style="font-size:9px; font-weight:800; color:${diff <= 2 ? '#ff5e00' : 'var(--primary)'};">${diff <= 0 ? 'VENCIDO' : diff + 'd'}</p></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:2; padding:10px; font-size:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:2; padding:10px; font-size:10px; background:#ff9d00;">CORRETIVA</button><button class="icon-btn" onclick="window.renderEquipmentHistory(${e.id})" style="width:40px; height:40px; color:var(--primary); background:rgba(255,255,255,0.03);"><span class="material-symbols-rounded" style="font-size:18px;">history</span></button></div></div>`; }).join('')}</div><button class="btn-primary" style="margin-top: 15px; background: rgba(255,255,255,0.05); color: var(--primary); font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ ADICIONAR AR NESTE APTO</button></div>`;
+      html += `<div class="card" style="border-top: 4px solid var(--primary);"><div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;"><div><h3 style="margin: 0; font-size: 18px; color: white;">${c.nome}</h3><p style="font-size:11px; opacity:0.5; font-weight:700; text-transform:uppercase; margin-top:4px;">APTO • ${c.endereco || '-'}</p></div><a href="https://wa.me/${(c.whatsapp||'').replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366; background: rgba(37,211,102,0.1); border:none;"><span class="material-symbols-rounded">chat</span></a></div><div style="display: flex; flex-direction: column; gap: 10px;">${es.map(e => { const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000); return `<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;"><div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;"><div style="width:32px; height:32px; background:white; border-radius:8px; padding:6px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div style="flex:1;"><h4 style="margin:0; font-size:13px;">${e.localizacao}</h4><p style="font-size:9px; opacity:0.5; font-weight:700;">${e.btu} BTU • ${e.potencia || 'S/P'}</p></div><p style="font-size:9px; font-weight:800; color:${diff <= 2 ? '#ff5e00' : 'var(--primary)'};">${diff <= 0 ? 'VENCIDO' : diff + 'd'}</p></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:2; padding:10px; font-size:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:2; padding:10px; font-size:10px; background:#ff9d00;">CORRETIVA</button><button class="icon-btn" onclick="window.renderEquipmentHistory(${e.id})" style="width:40px; height:40px; color:var(--primary); background:rgba(255,255,255,0.03);"><span class="material-symbols-rounded" style="font-size:18px;">history</span></button></div></div>`; }).join('')}</div><button class="btn-primary" style="margin-top: 15px; background: rgba(255,255,255,0.05); color: var(--primary); font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ ADICIONAR AR NESTE APTO</button></div>`;
     }
     mainContent.innerHTML = html + '</div>';
     document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Preventiva'));
@@ -166,8 +147,8 @@ async function renderMais() {
         <div class="form-group"><label>Nome do Aplicativo</label><input type="text" id="p-a" class="form-control" value="${appN}"></div>
         <button class="btn-primary" id="b-s" style="margin-top:10px;">SALVAR ALTERAÇÕES</button>
       </div>
-      <div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:15px; text-transform:uppercase; letter-spacing:1px;">Segurança (Backup)</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">BAIXAR DADOS</button><button onclick="window.importData()" class="btn-primary" style="background:transparent; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTAURAR</button></div></div>
-      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.03); padding: 25px; position: relative;">
+      <div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:15px; text-transform:uppercase;">Segurança (Backup)</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">BAIXAR DADOS</button><button onclick="window.importData()" class="btn-primary" style="background:transparent; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTAURAR</button></div></div>
+      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.03); padding: 25px;">
         <p style="font-size: 11px; color: var(--primary); font-weight: 900; text-transform: uppercase; margin-bottom: 12px;">Suporte Técnico Premium</p>
         <p style="font-size: 16px; font-weight: 800; margin: 0;">Leonardo Soprani</p>
         <p style="font-size: 12px; opacity: 0.6; margin: 4px 0 20px;">Desenvolvedor Full Stack • 2026</p>
@@ -181,34 +162,33 @@ async function renderMais() {
   document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
 }
 
-async function renderMaintenanceForm(eqId = null, defaultType = '') {
-  const eqs = await db.equipamentos.toArray(); const cls = await db.clientes.toArray();
-  openModal(defaultType || 'Registrar Serviço');
-  modalBody.innerHTML = `<form id="f-m"><div class="form-group"><label>Aparelho</label><select id="m-eq" class="form-control" style="background-image:none;">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome || 'S/N'} - ${e.marca}</option>`).join('')}</select></div><div class="form-group"><label>O que foi feito?</label><textarea id="m-d" class="form-control" rows="3" required>${defaultType ? defaultType + ': ' : ''}</textarea></div><div class="form-group"><label>Próxima Visita</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div><button type="submit" class="btn-primary" style="margin-top:10px;">FINALIZAR</button></form>`;
-  document.getElementById('f-m').onsubmit = async (ev) => {
-    ev.preventDefault(); const fId = Number(document.getElementById('m-eq').value); const nxD = new Date(document.getElementById('m-nx').value);
-    await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
-    await db.equipamentos.update(fId, { ultimaManutencao: new Date(), proximaManutencao: nxD }); closeModal(); renderDashboard();
+window.renderEquipmentForm = async function(id, cId) {
+  const eq = id ? await db.equipamentos.get(Number(id)) : null;
+  openModal(id ? 'Editar Aparelho' : 'Novo Aparelho');
+  let sB = eq?.marca || 'Samsung';
+  const r = () => {
+    modalBody.innerHTML = `
+      <form id="f-e">
+        <label>Escolha a Marca</label>
+        <div class="brand-grid">${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}"><img src="${getLogo(m)}" /></div>`).join('')}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:20px;">
+          <div class="form-group"><label>BTU</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
+          <div class="form-group"><label>Potência (W/A)</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}"></div>
+        </div>
+        <div class="form-group"><label>Localização Exata</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Suíte Master"></div>
+        <button type="submit" class="btn-primary" style="margin-top:10px;">SALVAR APARELHO</button>
+      </form>`;
+    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
+    document.getElementById('f-e').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const d = { marca: sB, btu: Number(document.getElementById('e-b').value), potencia: document.getElementById('e-p').value, localizacao: document.getElementById('e-l').value, clienteId: Number(cId) };
+      if (id) await db.equipamentos.update(Number(id), d);
+      else await db.equipamentos.add({ ...d, proximaManutencao: new Date() });
+      closeModal(); renderBairroDetail(cId, 'bairros');
+    };
   };
-}
-
-window.renderEquipmentForm = (id, cId) => {
-  openModal(id ? 'Editar' : 'Novo Ar');
-  modalBody.innerHTML = `<form id="f-e"><div class="form-group"><label>Marca</label><select id="e-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div><div class="form-group"><label>BTU</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}">${b}</option>`).join('')}</select></div><div class="form-group"><label>Local</label><input type="text" id="e-l" class="form-control" placeholder="Ex: Sala"></div><button type="submit" class="btn-primary" style="margin-top:10px;">SALVAR APARELHO</button></form>`;
-  document.getElementById('f-e').onsubmit = async (e) => { e.preventDefault(); const d = { marca: document.getElementById('e-m').value, btu: Number(document.getElementById('e-b').value), localizacao: document.getElementById('e-l').value, clienteId: Number(cId), proximaManutencao: new Date() }; if (id) await db.equipamentos.update(Number(id), d); else await db.equipamentos.add(d); closeModal(); renderBairroDetail(cId, 'bairros'); };
+  r();
 };
-
-window.renderPropertyForm = (bId) => {
-  openModal('Novo Apto');
-  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Dono / Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group"><label>Unidade / Apto</label><input type="text" id="p-e" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:10px;">CADASTRAR UNIDADE</button></form>`;
-  document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); };
-};
-
-async function renderBairroForm() {
-  openModal('Novo Edifício');
-  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome do Edifício</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:10px;">CADASTRAR</button></form>';
-  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value }); closeModal(); renderBairros(); };
-}
 
 async function init() {
   try {
@@ -221,5 +201,10 @@ async function init() {
   } catch (err) { console.error(err); if (document.getElementById('splash-screen')) document.getElementById('splash-screen').style.display = 'none'; }
 }
 
+window.exportData = async () => { /* ... */ };
+window.importData = () => { /* ... */ };
+window.renderPropertyForm = (bId) => { openModal('Novo Apto'); modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Dono / Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group"><label>Unidade / Apto</label><input type="text" id="p-e" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:10px;">CADASTRAR UNIDADE</button></form>`; document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); }; };
+async function renderBairroForm() { openModal('Novo Edifício'); modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome do Edifício</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:10px;">CADASTRAR</button></form>'; document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value }); closeModal(); renderBairros(); }; }
+
 window.renderBairros = renderBairros; window.renderDashboard = renderDashboard; window.renderHistorico = renderHistorico; window.renderMais = renderMais; window.renderBairroDetail = renderBairroDetail; 
-init();
+setupNavigation(); init();
