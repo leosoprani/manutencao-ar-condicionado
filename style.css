@@ -19,7 +19,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 800; letter-spacing: -0.02em; }
 
 .app-container { max-width: 500px; margin: 0 auto; padding-bottom: 100px; min-height: 100vh; }
 
