@@ -9,6 +9,15 @@ db.version(1).stores({
   manutencoes: '++id, equipamentoId, dataRealizada, descricao, proximaData'
 });
 
+db.version(2).stores({
+  unidades: '++id, clienteId, apartamento, proprietario, telefone',
+  equipamentos: '++id, clienteId, unidadeId, marca, modelo, btu, localizacao, ultimaManutencao, proximaManutencao'
+});
+
+db.version(3).stores({
+  manutencoes: '++id, equipamentoId, dataRealizada, descricao, proximaData, valor, formaPagamento'
+});
+
 // Seed data function
 export async function seedDatabase() {
   const bairroCount = await db.bairros.count();

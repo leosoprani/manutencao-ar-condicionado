@@ -1,16 +1,21 @@
 {
-  "name": "AR JAMPA Gestão",
+  "name": "App Gestão de Ar Condicionado",
   "short_name": "AR JAMPA",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0a0a0c",
-  "theme_color": "#00f2ff",
+  "background_color": "#1e1e2e",
+  "theme_color": "#22c55e",
+  "description": "Aplicativo premium para gestão e manutenção.",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/svg+xml"
     }
   ]
 }
