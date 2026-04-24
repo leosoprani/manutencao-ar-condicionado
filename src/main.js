@@ -620,9 +620,13 @@ async function init() {
   const s = document.getElementById('splash-screen');
   if (s) { 
     const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
-    const titleEl = s.querySelector('h1, h2, h3, .title, .logo-text');
+    const titleEl = s.querySelector('h1, h2, h3, .title, .logo-text, .splash-text');
     if (titleEl) titleEl.textContent = appN;
-    setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }, 1200); 
+    setTimeout(() => { 
+      s.style.opacity = '0'; 
+      s.style.transform = 'scale(1.05)';
+      setTimeout(() => s.remove(), 600); 
+    }, 3800); 
   }
 }
 
