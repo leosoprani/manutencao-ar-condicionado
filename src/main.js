@@ -9,9 +9,9 @@ const modalBody = document.getElementById('modal-body');
 const closeModalBtn = document.getElementById('btn-close-modal');
 
 let currentHomeFilter = 'vencimentos';
-
 const marcas = ['EOS', 'AGRATTO', 'LG', 'Samsung', 'Gree', 'Midea', 'Springer', 'Carrier', 'Fujitsu', 'Daikin', 'Electrolux', 'Philco', 'Consul', 'Hitachi', 'Comfee', 'Elgin'];
 const btus = [9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000];
+const avatarSeeds = ['Felix', 'Leo', 'Max', 'Oliver', 'Jack', 'Charlie', 'Milo', 'Oscar', 'Jasper', 'Harry', 'Theo', 'Noah'];
 const getAvatarUrl = (s) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
 
 function openModal(title) { if (modalTitle) modalTitle.textContent = title; if (modalOverlay) modalOverlay.classList.add('active'); }
@@ -129,31 +129,108 @@ async function renderBairros(searchTerm = '') {
   document.getElementById('b-search').oninput = (e) => renderBairros(e.target.value);
 }
 
-window.renderFullPropertyForm = async function(cId = null) {
-  const c = cId ? await db.clientes.get(Number(cId)) : null;
-  const bs = await db.bairros.toArray();
-  openModal('Cliente / Propriedade');
-  modalBody.innerHTML = `
-    <form id="f-f-p">
-      <div class="form-group"><label>Nome do Cliente</label><input type="text" id="p-n" class="form-control" value="${c?.nome || ''}" required></div>
-      <div class="form-group"><label>Bairro</label><select id="p-b" class="form-control" required><option value="">Selecione...</option>${bs.map(b => `<option value="${b.id}" ${c?.bairroId == b.id ? 'selected' : ''}>${b.nome}</option>`).join('')}</select></div>
-      <div class="form-group"><label>Endereço / Unidade</label><input type="text" id="p-e" class="form-control" value="${c?.endereco || ''}" required></div>
-      <div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="${c?.whatsapp || '(83) 9'}" required></div>
-      <button type="submit" class="btn-primary">SALVAR DADOS</button>
-    </form>`;
-  document.getElementById('f-f-p').onsubmit = async (ev) => {
-    ev.preventDefault();
-    const d = { nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value };
-    if (cId) await db.clientes.update(Number(cId), d);
-    else await db.clientes.add(d);
-    closeModal(); renderBairros();
-  };
+async function renderHistorico() {
+  headerContent.innerHTML = '<h2 style="font-size: 20px; font-weight: 800; margin:0;">HISTÓRICO</h2>';
+  const os = await db.manutencoes.reverse().toArray();
+  let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px; padding: 0 20px;">';
+  for (const m of os) {
+    const e = await db.equipamentos.get(m.equipamentoId);
+    const c = e ? await db.clientes.get(e.clienteId) : null;
+    const isCor = m.descricao && m.descricao.includes('Corretiva');
+    html += `<div class="card" style="border-left: 5px solid ${isCor ? '#ff9d00' : '#22c55e'}; margin:0;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"><span style="font-size: 8px; font-weight: 900; padding: 4px 10px; border-radius: 40px; background: rgba(255,255,255,0.05); color: ${isCor ? '#ff9d00' : '#22c55e'}; border: 1px solid ${isCor ? '#ff9d00' : '#22c55e'}; text-transform:uppercase;">${isCor ? 'CORRETIVA' : 'PREVENTIVA'}</span><span style="font-size: 10px; opacity: 0.5; font-weight:700;">${new Date(m.dataRealizada).toLocaleDateString()}</span></div><h4 style="margin:0; font-size:16px;">${c?.nome || 'Removido'}</h4><p style="font-size: 13px; font-style: italic; background:rgba(0,0,0,0.3); padding:15px; border-radius:15px; margin-top:12px; line-height:1.5; color:#eee;">${m.descricao}</p></div>`;
+  }
+  if (os.length === 0) html += '<p style="text-align:center; opacity:0.3; padding:40px;">Sem registros.</p>';
+  mainContent.innerHTML = html + '</div>';
+}
+
+async function renderMais() {
+  const tech = localStorage.getItem('jampa_tech_name') || 'Alexandre';
+  const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
+  const curAv = localStorage.getItem('jampa_tech_avatar') || 'Felix';
+  headerContent.innerHTML = '<h2 style="font-size: 20px; font-weight: 800; margin:0;">AJUSTES</h2>';
+  mainContent.innerHTML = `
+    <div class="animate-in" style="display: flex; flex-direction: column; gap: 20px; padding: 0 20px;">
+      <div class="card" style="margin:0;"><label style="font-size:11px; font-weight:800; color:var(--primary);">Avatar do Perfil</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top:15px;">${avatarSeeds.map(s => `<div class="avatar-option ${curAv === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; border: 2px solid ${curAv === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03); overflow:hidden;"><img src="${getAvatarUrl(s)}" style="width: 100%; display:block;" /></div>`).join('')}</div></div>
+      <div class="card" style="margin:0;">
+        <div class="form-group"><label>Nome do Técnico</label><input type="text" id="p-t" class="form-control" value="${tech}"></div>
+        <div class="form-group"><label>Nome do Aplicativo</label><input type="text" id="p-a" class="form-control" value="${appN}"></div>
+        <button class="btn-primary" id="b-s">SALVAR ALTERAÇÕES</button>
+      </div>
+      <div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e; margin:0;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:15px; text-transform:uppercase;">Backup</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px; margin-top:0;">BAIXAR</button><button onclick="window.importData()" class="btn-primary" style="background:transparent; color:#22c55e; font-size:11px; border: 1px solid #22c55e; margin-top:0;">RESTAURAR</button></div></div>
+      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.03); padding: 25px; margin:0;">
+        <p style="font-size: 16px; font-weight: 800; margin: 0;">Leonardo Soprani</p>
+        <p style="font-size: 11px; opacity: 0.6;">Desenvolvedor Full Stack • 2026</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;"><span style="font-size: 10px; font-weight: 800; color: #888;">VERSÃO 3.0.5</span><a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; color: white; padding: 10px 18px; font-size: 11px; border-radius: 12px; width:auto; margin-top:0;">WHATSAPP</a></div>
+      </div>
+    </div>`;
+  document.querySelectorAll('.avatar-option').forEach(opt => { opt.onclick = () => { localStorage.setItem('jampa_tech_avatar', opt.dataset.seed); renderMais(); }; });
+  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
+}
+
+window.exportData = async () => {
+  const data = { bairros: await db.bairros.toArray(), clientes: await db.clientes.toArray(), equipamentos: await db.equipamentos.toArray(), manutencoes: await db.manutencoes.toArray() };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_jampa.json`; a.click();
+  localStorage.setItem('last_jampa_backup', Date.now().toString()); renderDashboard();
 };
 
-window.renderBairroForm = async function() {
-  openModal('Novo Bairro');
-  modalBody.innerHTML = `<form id="f-b"><div class="form-group"><label>Nome do Bairro</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary">SALVAR</button></form>`;
-  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value }); closeModal(); renderBairros(); };
+window.importData = () => {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (confirm('Restaurar dados?')) { await db.delete(); await db.open(); if (data.bairros) await db.bairros.bulkAdd(data.bairros); if (data.clientes) await db.clientes.bulkAdd(data.clientes); if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos); if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes); location.reload(); }
+      } catch (err) { alert('Erro ao importar'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
+
+window.renderEquipmentHistory = async function(eqId) {
+  const eq = await db.equipamentos.get(Number(eqId));
+  const os = await db.manutencoes.where('equipamentoId').equals(Number(eqId)).reverse().toArray();
+  openModal(`Histórico: ${eq.marca}`);
+  let html = '<div style="display: flex; flex-direction: column; gap: 15px; padding: 10px;">';
+  for (const m of os) {
+    html += `<div style="border-left: 2px solid var(--primary); padding-left: 15px;"><p style="font-size: 11px; font-weight: 800; color: var(--primary); margin: 0;">${new Date(m.dataRealizada).toLocaleDateString()}</p><p style="font-size: 13px; color: white; margin: 5px 0;">${m.descricao}</p></div>`;
+  }
+  modalBody.innerHTML = html + '</div>';
+};
+
+window.renderBairroDetail = async function(bId, from) {
+  const b = await db.bairros.get(Number(bId));
+  const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="window.renderBairros()"><span class="material-symbols-rounded">arrow_back</span></button><h2 style="font-size:18px;">${b.nome}</h2></div>`;
+  let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px; padding: 0 20px; margin-top:20px;">';
+  for (const c of cs) {
+    const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
+    html += `<div class="card" style="margin:0;"><div style="display: flex; justify-content: space-between; margin-bottom: 15px;"><div><h3 style="margin: 0; font-size: 16px;">${c.nome}</h3><p style="font-size:10px; opacity:0.5;">${c.endereco}</p></div><div style="display:flex; gap:10px;"><button class="icon-btn" onclick="window.renderFullPropertyForm(${c.id})"><span class="material-symbols-rounded" style="font-size:16px;">edit</span></button><a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="icon-btn success"><span class="material-symbols-rounded" style="font-size:16px;">chat</span></a></div></div>${es.map(e => `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:center;"><div><p style="margin:0; font-size:12px; font-weight:700;">${e.marca} • ${e.localizacao}</p><p style="margin:0; font-size:9px; opacity:0.5;">${e.btu} BTU</p></div><button class="icon-btn" style="border:none;" onclick="window.deleteItem('equipamento', ${e.id})"><span class="material-symbols-rounded" style="font-size:14px; color:#ff4d4d;">delete</span></button></div></div>`).join('')}<button class="btn-primary" onclick="window.renderEquipmentForm(null, ${c.id})" style="font-size:10px; padding:10px;">+ ADICIONAR AR</button></div>`;
+  }
+  mainContent.innerHTML = html + '</div>';
+};
+
+window.renderEquipmentForm = async function(id, cId) {
+  openModal('Novo Aparelho');
+  let sB = 'Samsung';
+  const r = () => {
+    modalBody.innerHTML = `
+      <form id="f-e">
+        <label>Marca</label><div class="brand-grid">${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}"><img src="${getLogo(m)}" /></div>`).join('')}</div>
+        <div class="form-group" style="margin-top:20px;"><label>BTU</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}">${b}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Localização</label><input type="text" id="e-l" class="form-control" placeholder="Ex: Sala"></div>
+        <button type="submit" class="btn-primary">SALVAR</button>
+      </form>`;
+    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
+    document.getElementById('f-e').onsubmit = async (ev) => {
+      ev.preventDefault();
+      await db.equipamentos.add({ marca: sB, btu: Number(document.getElementById('e-b').value), localizacao: document.getElementById('e-l').value, clienteId: Number(cId), proximaManutencao: new Date() });
+      closeModal(); location.reload();
+    };
+  }; r();
 };
 
 async function init() {
@@ -164,4 +241,4 @@ async function init() {
   if (s) { setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }, 1200); }
 }
 
-window.renderDashboard = renderDashboard; window.renderBairros = renderBairros; init();
+window.renderDashboard = renderDashboard; window.renderBairros = renderBairros; window.renderHistorico = renderHistorico; window.renderMais = renderMais; init();
