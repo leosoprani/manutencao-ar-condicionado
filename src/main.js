@@ -51,9 +51,16 @@ async function renderDashboard(sortBy = 'proximas') {
     
     headerContent.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); border: none; color: var(--primary); font-weight: 700;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>GERAL</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>POR BAIRRO</option></select></div>`;
 
+    let html = '';
+    const lastB = localStorage.getItem('last_jampa_backup');
+    const needsB = !lastB || (Date.now() - Number(lastB) > 604800000);
+    if (needsB) {
+      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.1); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 15px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 32px;">cloud_upload</span><div style="flex:1;"><h4 style="margin:0; font-size:13px; color:#ff5e00;">Segurança de Dados</h4><p style="margin:0; font-size:11px; opacity:0.8;">Você não faz backup há mais de 7 dias.</p></div><button onclick="window.exportData()" class="btn-primary" style="width:auto; font-size:10px; background:#ff5e00; color:black; padding: 8px 12px;">FAZER AGORA</button></div>`;
+    }
+
     const eqs = await db.equipamentos.toArray();
     const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
-    let html = '<div class="dashboard-grid animate-in">';
+    html += '<div class="dashboard-grid animate-in">';
     for (const e of sorted) {
       const c = await db.clientes.get(e.clienteId);
       if (!c) continue;
@@ -218,35 +225,65 @@ async function renderMais() {
   const an = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
   const currentAvatar = localStorage.getItem('jampa_tech_avatar') || 'Felix';
   headerContent.innerHTML = '<h2>AJUSTES</h2><p>Perfil e Sistema</p>';
-  mainContent.innerHTML = `<div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;"><div class="card"><label style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 15px; display: block;">Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${currentAvatar === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; overflow: hidden; border: 2px solid ${currentAvatar === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03);"><img src="${getAvatarUrl(s)}" style="width: 100%; display: block;" /></div>`).join('')}</div></div><div class="card"><div class="form-group"><label>Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div><div class="form-group" style="margin-top:10px;"><label>App</label><input type="text" id="p-a" class="form-control" value="${an}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR</button></div><div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;"><p style="font-size: 12px; margin:0;"><b>Dev:</b> Leonardo Soprani</p><p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.1 Titanium</p><a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">CONTATO SUPORTE</a></div></div>`;
+  mainContent.innerHTML = `
+    <div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;">
+      <div class="card"><label style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 15px; display: block;">Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${currentAvatar === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; overflow: hidden; border: 2px solid ${currentAvatar === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03);"><img src="${getAvatarUrl(s)}" style="width: 100%; display: block;" /></div>`).join('')}</div></div>
+      <div class="card"><div class="form-group"><label>Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div><div class="form-group" style="margin-top:10px;"><label>App</label><input type="text" id="p-a" class="form-control" value="${an}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR AJUSTES</button></div>
+      <div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;">
+        <h3 style="font-size:14px; color:#22c55e; margin-bottom:15px; text-transform:uppercase;">Cópia de Segurança</h3>
+        <p style="font-size:11px; margin-bottom:15px; opacity:0.8;">Baixe o arquivo de backup para não perder seus dados ou restaure um arquivo antigo.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">EXPORTAR JSON</button>
+          <button onclick="window.importData()" class="btn-primary" style="background:#1e293b; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTAURAR</button>
+        </div>
+      </div>
+      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;"><p style="font-size: 12px; margin:0;"><b>Dev:</b> Leonardo Soprani</p><p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.2 Titanium Plus</p><a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">CONTATO SUPORTE</a></div>
+    </div>`;
   document.querySelectorAll('.avatar-option').forEach(opt => { opt.onclick = () => { const s = opt.dataset.seed; localStorage.setItem('jampa_tech_avatar', s); renderMais(); const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(s); }; });
   const bs = document.getElementById('b-s'); if (bs) bs.onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
 }
 
-async function renderPropertyForm(bId) {
-  openModal('Novo Apto');
-  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>Unidade</label><input type="text" id="p-e" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">CADASTRAR</button></form>`;
-  document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); };
-}
-
-async function renderEquipmentForm(id = null, preCId = null) {
-  const idNum = id ? Number(id) : null;
-  const eq = idNum ? await db.equipamentos.get(idNum) : null;
-  openModal(idNum ? 'Editar' : 'Novo Ar');
-  let sB = eq?.marca || 'Samsung';
-  const r = () => {
-    modalBody.innerHTML = `<form id="f-e"><div class="brand-grid" style="margin-bottom: 20px;">${marcas.slice(0,8).map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; border: 2.5px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /></div>`).join('')}</div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>BTU</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b}</option>`).join('')}</select></div><div class="form-group"><label>Potência</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}"></div></div><div class="form-group" style="margin-top:10px;"><label>Local</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">SALVAR</button></form>`;
-    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
-    document.getElementById('f-e').onsubmit = async (ev) => { ev.preventDefault(); const c = await db.clientes.get(Number(preCId) || eq?.clienteId); const d = { marca: sB, btu: Number(document.getElementById('e-b').value), potencia: document.getElementById('e-p').value, modelo: '', localizacao: document.getElementById('e-l').value, unidade: c?.endereco, clienteId: c.id }; if (idNum) await db.equipamentos.update(idNum, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() }); closeModal(); renderBairroDetail(c.bairroId, 'bairros'); };
+window.exportData = async () => {
+  const data = {
+    bairros: await db.bairros.toArray(),
+    clientes: await db.clientes.toArray(),
+    equipamentos: await db.equipamentos.toArray(),
+    manutencoes: await db.manutencoes.toArray()
   };
-  r();
-}
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup_jampa_${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  localStorage.setItem('last_jampa_backup', Date.now().toString());
+  renderDashboard();
+};
 
-async function renderBairroForm() {
-  openModal('Novo Edifício');
-  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><div class="form-group"><label>Cor</label><input type="color" id="b-c" class="form-control" value="#00f2ff"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">CADASTRAR</button></form>';
-  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value }); closeModal(); renderBairros(); };
-}
+window.importData = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (confirm('A restauração irá substituir os dados atuais. Continuar?')) {
+          await db.delete(); await db.open();
+          if (data.bairros) await db.bairros.bulkAdd(data.bairros);
+          if (data.clientes) await db.clientes.bulkAdd(data.clientes);
+          if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos);
+          if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes);
+          alert('Dados restaurados com sucesso!'); location.reload();
+        }
+      } catch (err) { alert('Arquivo inválido.'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
 
 async function init() {
   try {
@@ -256,14 +293,9 @@ async function init() {
       await db.delete(); await db.open(); await seedDatabase();
       localStorage.setItem('jampa_reset_v15', 'done');
     }
-    setupNavigation(); 
-    await renderDashboard();
+    setupNavigation(); await renderDashboard();
     if (s) { setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 800); }, 1200); }
-  } catch (err) {
-    console.error("Init Error:", err);
-    const s = document.getElementById('splash-screen');
-    if (s) s.style.display = 'none'; // Force hide on error
-  }
+  } catch (err) { console.error(err); if (document.getElementById('splash-screen')) document.getElementById('splash-screen').style.display = 'none'; }
 }
 
 window.renderBairros = renderBairros;
@@ -272,7 +304,7 @@ window.renderHistorico = renderHistorico;
 window.renderMais = renderMais;
 window.renderBairroDetail = renderBairroDetail;
 window.renderEquipmentForm = renderEquipmentForm;
-window.renderPropertyForm = renderPropertyForm;
+window.renderPropertyForm = (bId) => { openModal('Novo Apto'); modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>Unidade</label><input type="text" id="p-e" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">CADASTRAR</button></form>`; document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); }; };
 window.renderEquipmentHistory = renderEquipmentHistory;
 window.deleteEquipment = async (id) => { if (confirm('Excluir?')) { const eq = await db.equipamentos.get(id); if(eq){ await db.equipamentos.delete(id); renderBairroDetail(eq.clienteId ? (await db.clientes.get(eq.clienteId)).bairroId : 0, 'bairros'); } } };
 
