@@ -41,11 +41,6 @@ function setupNavigation() {
   });
 }
 
-// Persist common values for multi-add
-let lastBrand = 'Samsung';
-let lastBtu = 12000;
-let lastUnit = '';
-
 async function renderDashboard(sortBy = 'proximas') {
   const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
   const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
@@ -65,7 +60,7 @@ async function renderDashboard(sortBy = 'proximas') {
       <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
         <div style="display: flex; align-items: center; gap: 15px;">
           <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
-          <div style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
+          <div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
           <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
         </div>
         <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">REGISTRAR</button></div>
@@ -108,7 +103,7 @@ async function renderHistorico() {
 async function renderBairroDetail(bId, from = 'home') {
   const b = await db.bairros.get(Number(bId));
   const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Gerenciando Clientes</p></div></div>`;
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Lista de Clientes</p></div></div>`;
   let html = '<div class="animate-in">';
   for (const c of cs) {
     const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
@@ -121,64 +116,42 @@ async function renderBairroDetail(bId, from = 'home') {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           ${es.map(e => `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center; border: 1px solid var(--glass-border);"><img src="${getLogo(e.marca)}" style="width: 24px; height:24px; object-fit:contain;" /><p style="font-size: 9px; margin: 5px 0; font-weight:800;">${e.localizacao}</p><button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px; margin: 0 auto; background:var(--primary); color:black;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button></div>`).join('')}
         </div>
-        <button class="btn-primary" style="margin-top: 15px; width:100%; font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ CADASTRAR NOVO AR</button>
+        <button class="btn-primary" style="margin-top: 20px; width:100%; box-shadow: 0 5px 15px rgba(0,0,0,0.2);" onclick="window.renderEquipmentForm(null, ${c.id})">+ CADASTRAR NOVO AR</button>
       </div>`;
   }
   mainContent.innerHTML = html + '</div>';
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
-async function renderEquipmentForm(id = null, preCId = null, keepData = false) {
+async function renderEquipmentForm(id = null, preCId = null) {
   const eq = id ? await db.equipamentos.get(id) : null;
   openModal(id ? 'Editar Ar' : 'Novo Ar');
-  
-  // Use persisted values if keepData is true, else use DB or defaults
-  let sB = keepData ? lastBrand : (eq?.marca || 'Samsung');
-  let sBtu = keepData ? lastBtu : (eq?.btu || 12000);
-  let sUnit = keepData ? lastUnit : (eq?.unidade || '');
-
+  let sB = eq?.marca || 'Samsung';
   const r = () => {
     modalBody.innerHTML = `
       <form id="f-e">
-        <label style="font-size:10px; font-weight:800; color:var(--primary); margin-bottom:12px; display:block; text-transform:uppercase;">Marca</label>
+        <label style="font-size:10px; font-weight:800; color:var(--primary); margin-bottom:12px; display:block; text-transform:uppercase;">Escolha a Marca</label>
         <div class="brand-grid" style="margin-bottom: 20px;">
           ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2.5px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
-           <div class="form-group"><label>Capacidade (BTU)</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${sBtu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
-           <div class="form-group"><label>Unidade / Apt</label><input type="text" id="e-u" class="form-control" value="${sUnit}" placeholder="Ex: Sala 201"></div>
+           <div class="form-group"><label>Capacidade (BTU)</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
+           <div class="form-group"><label>Unidade / Apt</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Sala 201"></div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px;">
            <div class="form-group"><label>Potência (W / A)</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}" placeholder="Ex: 1500W"></div>
            <div class="form-group"><label>Modelo / Ref</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter"></div>
         </div>
         <div class="form-group" style="margin-top:10px;"><label>Localização</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Quarto"></div>
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 25px;">
-          <button type="button" id="btn-save-more" class="btn-primary" style="background: var(--primary); color: black; box-shadow: 0 5px 15px var(--primary-glow);">SALVAR E +1 AR NO MESMO LOCAL</button>
-          <button type="button" id="btn-save-close" class="btn-primary" style="background: #1e293b; color: white;">SALVAR E FINALIZAR</button>
-        </div>
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">SALVAR APARELHO</button>
       </form>`;
     document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
-    
-    const save = async (close) => {
-      const d = { 
-        marca: sB, 
-        btu: Number(document.getElementById('e-b').value), 
-        potencia: document.getElementById('e-p').value, 
-        modelo: document.getElementById('e-m').value, 
-        localizacao: document.getElementById('e-l').value, 
-        unidade: document.getElementById('e-u').value, 
-        clienteId: preCId || eq?.clienteId 
-      };
-      // Save for next one
-      lastBrand = d.marca; lastBtu = d.btu; lastUnit = d.unidade;
-
+    document.getElementById('f-e').onsubmit = async (e) => {
+      e.preventDefault();
+      const d = { marca: sB, btu: Number(document.getElementById('e-b').value), potencia: document.getElementById('e-p').value, modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: preCId || eq?.clienteId };
       if (id) await db.equipamentos.update(id, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() });
-      if (close) { closeModal(); if (preCId) renderBairroDetail(preCId, 'bairros'); else renderDashboard(); }
-      else { renderEquipmentForm(null, preCId, true); } // RE-RENDER WITH DATA
+      closeModal(); if (preCId) renderBairroDetail(preCId, 'bairros'); else renderDashboard();
     };
-    document.getElementById('btn-save-close').onclick = () => save(true);
-    document.getElementById('btn-save-more').onclick = () => save(false);
   };
   r();
 }
@@ -237,7 +210,7 @@ function renderMais() {
       <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;">
         <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--secondary); text-transform: uppercase;">SOBRE O SISTEMA</h3>
         <p style="font-size: 12px; margin:0;"><b>Desenvolvido por:</b> Leonardo Soprani</p>
-        <p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.0 Premium</p>
+        <p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.0 Premium Gold</p>
         <p style="font-size: 12px; margin:0;"><b>Ano:</b> 2026</p>
         <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">CONTATO SUPORTE</a>
       </div>
