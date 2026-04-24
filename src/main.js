@@ -309,4 +309,4 @@ window.renderHistorico = renderHistorico;
 window.renderMais = renderMais;
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => { reg.onupdatefound = () => { const newSW = reg.installing; newSW.onstatechange = () => { if (newSW.state === 'installed' \&\& navigator.serviceWorker.controller) { if (confirm('Nova atualização disponível! Deseja instalar agora?')) { window.location.reload(); } } }; }; }).catch(() => {}));
-init();
+try { init(); } catch (e) { console.error(e); document.getElementById('splash-screen').remove(); }
