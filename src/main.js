@@ -224,7 +224,7 @@ async function renderEquipmentForm(id = null, preCId = null) {
     modalBody.innerHTML = `
       <form id="f-e">
         <label style="font-size:11px; font-weight:800; color:var(--primary); margin-bottom:10px; display:block;">MARCA</label>
-        <div class="brand-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+        <div class="brand-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
           ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 8px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 30px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
