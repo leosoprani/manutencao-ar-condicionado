@@ -82,11 +82,39 @@ async function importData(file) {
   reader.readAsText(file);
 }
 
+async function performSearch(q) {
+  const query = q.toLowerCase();
+  const cs = await db.clientes.toArray();
+  const es = await db.equipamentos.toArray();
+  const filteredC = cs.filter(c => c.nome.toLowerCase().includes(query) || c.endereco.toLowerCase().includes(query));
+  const filteredE = es.filter(e => e.marca.toLowerCase().includes(query) || e.modelo.toLowerCase().includes(query));
+  
+  let html = '<div class="dashboard-grid animate-in">';
+  filteredC.forEach(c => {
+    html += `<div class="card" style="grid-column: span 2;" onclick="window.renderBairroDetail(${c.bairroId}, 'home')"><h3>${c.nome}</h3><p style="font-size: 11px; opacity:0.6;">${c.endereco}</p></div>`;
+  });
+  mainContent.innerHTML = html + '</div>';
+}
+
 async function renderDashboard(sortBy = 'proximas') {
   const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
   if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
   
-  headerContent.innerHTML = '<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px;">Agenda</h2></div></div>';
+  headerContent.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 20px;">Agenda</h2>
+        <select id="d-s" class="form-control" style="width: auto; font-size: 11px; padding: 5px 10px; height: 32px; background: rgba(255,255,255,0.05); border: none; color: var(--primary); font-weight: 800;">
+          <option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>Agenda Geral</option>
+          <option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>Ver por Bairro</option>
+        </select>
+      </div>
+      <div class="search-bar-global" style="position: relative;">
+        <span class="material-symbols-rounded" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 18px;">search</span>
+        <input type="text" id="g-s" placeholder="Pesquisar cliente ou marca..." style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 15px 12px 40px; color: white; border: 1px solid var(--glass-border); outline: none;">
+      </div>
+    </div>
+  `;
 
   const lastBackup = localStorage.getItem('jampa_last_backup');
   const now = new Date().getTime();
@@ -104,35 +132,49 @@ async function renderDashboard(sortBy = 'proximas') {
 
   const eqs = await db.equipamentos.toArray();
   const rec = await db.manutencoes.reverse().limit(3).toArray();
+  const bairros = await db.bairros.toArray();
   let html = backupAlert + '<div class="dashboard-grid animate-in">';
   
-  if (rec.length > 0) {
-    html += '<div style="grid-column: span 2; display: flex; align-items: center; gap: 8px;"><h3 style="font-size: 12px; color: var(--secondary);">SERVIÇOS RECENTES</h3></div>';
-    for (const m of rec) {
-      const e = await db.equipamentos.get(m.equipamentoId);
-      const c = e ? await db.clientes.get(e.clienteId) : null;
-      html += `<div class="card" style="grid-column: span 2; padding: 10px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02);"><img src="${getLogo(e?.marca)}" style="width: 24px;" /><div><h4 style="font-size: 12px; margin: 0;">${c?.nome}</h4><p style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString()}</p></div></div>`;
+  if (sortBy === 'bairro') {
+    for (const b of bairros) {
+      const cCount = await db.clientes.where('bairroId').equals(b.id).count();
+      html += `
+        <div class="card" onclick="window.renderBairroDetail(${b.id}, 'home')" style="border-left: 4px solid ${b.cor || 'var(--primary)'};">
+          <div style="color: ${b.cor || 'var(--primary)'}; margin-bottom: 10px;"><span class="material-symbols-rounded">location_on</span></div>
+          <h3 style="margin:0; font-size:14px;">${b.nome.toUpperCase()}</h3>
+          <p style="font-size:10px; opacity:0.6;">${cCount} Propriedades</p>
+        </div>
+      `;
+    }
+  } else {
+    if (rec.length > 0) {
+      html += '<div style="grid-column: span 2; display: flex; align-items: center; gap: 8px;"><h3 style="font-size: 12px; color: var(--secondary); letter-spacing:1px; font-weight:800;">SERVIÇOS RECENTES</h3></div>';
+      for (const m of rec) {
+        const e = await db.equipamentos.get(m.equipamentoId);
+        const c = e ? await db.clientes.get(e.clienteId) : null;
+        html += `<div class="card" style="grid-column: span 2; padding: 10px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02);"><img src="${getLogo(e?.marca)}" style="width: 24px;" /><div><h4 style="font-size: 12px; margin: 0;">${c?.nome}</h4><p style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString()} - ${m.descricao.substring(0,20)}...</p></div></div>`;
+      }
+    }
+    html += '<div style="grid-column: span 2; margin-top: 15px;"><h3 style="font-size: 12px; color: var(--primary); letter-spacing:1px; font-weight:800;">AGENDA PRÓXIMA</h3></div>';
+    const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
+    for (const e of sorted) {
+      const c = await db.clientes.get(e.clienteId);
+      const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / (86400000));
+      html += `
+        <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="${getLogo(e.marca)}" style="width: 32px;" />
+            <div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')"><h3 style="font-size: 14px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.7;">${e.marca} - ${e.localizacao} ${e.unidade ? '(' + e.unidade + ')' : ''}</p></div>
+            <span style="margin-left: auto; font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
+          </div>
+          <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="padding: 8px; font-size: 11px;">REGISTRAR MANUTENÇÃO</button><a href="https://wa.me/${c?.whatsapp.replace(/\D/g,'')}" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a></div>
+        </div>`;
     }
   }
-  
-  html += '<div style="grid-column: span 2; margin-top: 15px;"><h3 style="font-size: 12px; color: var(--primary);">AGENDA PRÓXIMA</h3></div>';
-  const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
-  for (const e of sorted) {
-    const c = await db.clientes.get(e.clienteId);
-    const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / (86400000));
-    html += `
-      <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 10px; border: 1px solid ${diff <= 2 ? 'rgba(255,0,0,0.2)' : 'rgba(255,255,255,0.05)'};">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <img src="${getLogo(e.marca)}" style="width: 32px;" />
-          <div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')"><h3 style="font-size: 14px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.7;">${e.marca} - ${e.localizacao}</p></div>
-          <span style="margin-left: auto; font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
-        </div>
-        <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="padding: 8px; font-size: 11px;">REGISTRAR MANUTENÇÃO</button><a href="https://wa.me/${c?.whatsapp.replace(/\D/g,'')}" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a></div>
-      </div>`;
-  }
   mainContent.innerHTML = html + '</div>';
-  const bAlert = document.getElementById('backup-alert');
-  if (bAlert) bAlert.onclick = exportData;
+  const sortSel = document.getElementById('d-s'); if (sortSel) sortSel.onchange = (e) => renderDashboard(e.target.value);
+  const searchInp = document.getElementById('g-s'); if (searchInp) searchInp.oninput = (e) => performSearch(e.target.value);
+  const bAlert = document.getElementById('backup-alert'); if (bAlert) bAlert.onclick = exportData;
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
@@ -148,17 +190,26 @@ async function renderBairros() {
 
 async function renderBairroForm() {
   openModal('Novo Bairro');
-  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary">SALVAR</button></form>';
-  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: '#00f2ff' }); closeModal(); renderBairros(); };
+  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><div class="form-group"><label>Cor</label><input type="color" id="b-c" class="form-control" value="#00f2ff"></div><button type="submit" class="btn-primary">SALVAR</button></form>';
+  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value }); closeModal(); renderBairros(); };
 }
 
 async function renderPropertyForm() {
   const brs = await db.bairros.toArray();
   openModal('Nova Propriedade');
-  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Nome / Edifício</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9"></div><button type="submit" class="btn-primary">SALVAR</button></form>`;
+  modalBody.innerHTML = `
+    <form id="f-p">
+      <div class="form-group"><label>Nome / Edifício</label><input type="text" id="p-n" class="form-control" required></div>
+      <div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Endereço Completo</label><input type="text" id="p-e" class="form-control" placeholder="Rua, Número, Referência" required></div>
+      <div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div>
+      <div class="form-group"><label>Telefone Alternativo</label><input type="text" id="p-t" class="form-control" placeholder="(83) 3000-0000"></div>
+      <button type="submit" class="btn-primary">SALVAR PROPRIEDADE</button>
+    </form>
+  `;
   document.getElementById('f-p').onsubmit = async (e) => {
     e.preventDefault();
-    await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: 'Avulso', whatsapp: document.getElementById('p-w').value, tipo: 'Residência', telefone: '(83) 9' });
+    await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: document.getElementById('p-t').value || '(83) 9', tipo: 'Geral' });
     closeModal(); renderBairros();
   };
 }
@@ -170,14 +221,17 @@ async function renderEquipmentForm(id = null, preCId = null) {
   const r = () => {
     modalBody.innerHTML = `
       <form id="f-e">
+        <label style="font-size:11px; font-weight:800; color:var(--primary); margin-bottom:10px; display:block;">MARCA</label>
         <div class="brand-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
           ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 8px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 30px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
         </div>
-        <div class="form-group"><label>BTUs</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
-        <div class="form-group"><label>Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
-        <div class="form-group"><label>Modelo</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}"></div>
-        <div class="form-group"><label>Local</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}"></div>
-        <button type="submit" class="btn-primary">SALVAR</button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
+           <div class="form-group"><label>Capacidade</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
+           <div class="form-group"><label>Apartamento/Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
+        </div>
+        <div class="form-group"><label>Modelo / Referência</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter, WindFree"></div>
+        <div class="form-group"><label>Local de Instalação</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Sala, Quarto"></div>
+        <button type="submit" class="btn-primary">SALVAR EQUIPAMENTO</button>
       </form>
     `;
     document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
@@ -201,10 +255,10 @@ async function renderMaintenanceForm(eqId = null) {
     modalBody.innerHTML = `
       <div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : 'var(--surface-container)'}; color: ${tab === 'existente' ? 'black' : 'white'};">EXISTENTE</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : 'var(--surface-container)'}; color: ${tab === 'avulso' ? 'black' : 'white'};">AVULSO</button></div>
       <form id="f-m">
-        ${tab === 'existente' ? `<div class="form-group"><label>Ar</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>`}
-        <div class="form-group"><label>O que foi feito?</label><textarea id="m-d" class="form-control" rows="2" required></textarea></div>
-        <div class="form-group"><label>Data Retorno</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
-        <button type="submit" class="btn-primary">SALVAR</button>
+        ${tab === 'existente' ? `<div class="form-group"><label>Escolha o Ar</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca} (${e.localizacao})</option>`).join('')}</select></div>` : `<div class="form-group"><label>Nome do Cliente</label><input type="text" id="av-n" class="form-control" required></div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:15px;"><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div></div>`}
+        <div class="form-group"><label>Serviço Realizado</label><textarea id="m-d" class="form-control" rows="2" placeholder="O que foi feito no aparelho?" required></textarea></div>
+        <div class="form-group"><label>Data da Próxima Manutenção</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
+        <button type="submit" class="btn-primary">SALVAR MANUTENÇÃO</button>
       </form>
     `;
     document.getElementById('t-ex').onclick = () => { tab = 'existente'; r(); };
@@ -214,7 +268,7 @@ async function renderMaintenanceForm(eqId = null) {
       let fId = eqId;
       if (tab === 'avulso') {
         const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' });
-        fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, clienteId: cId, proximaManutencao: new Date() });
+        fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() });
       } else { fId = Number(document.getElementById('m-eq').value); }
       const nxD = new Date(document.getElementById('m-nx').value);
       await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
@@ -226,13 +280,13 @@ async function renderMaintenanceForm(eqId = null) {
 }
 
 async function renderHistorico() {
-  headerContent.innerHTML = '<h2>Histórico</h2><p>Serviços Finalizados</p>';
+  headerContent.innerHTML = '<h2>Histórico</h2><p>Serviços Realizados</p>';
   const os = await db.manutencoes.reverse().toArray();
   let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">';
   for (const m of os) {
     const e = await db.equipamentos.get(m.equipamentoId);
     const c = e ? await db.clientes.get(e.clienteId) : null;
-    html += `<div class="card"><h4>${c?.nome}</h4><p>${e?.marca} - ${new Date(m.dataRealizada).toLocaleDateString()}</p><p style="font-size: 12px; font-style: italic;">${m.descricao}</p></div>`;
+    html += `<div class="card"><h4>${c?.nome}</h4><p style="font-size:12px; color:var(--primary);">${e?.marca} - ${new Date(m.dataRealizada).toLocaleDateString()}</p><p style="font-size: 12px; font-style: italic; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">${m.descricao}</p></div>`;
   }
   mainContent.innerHTML = html + '</div>';
 }
@@ -240,26 +294,26 @@ async function renderHistorico() {
 async function renderBairroDetail(bId, from = 'home') {
   const b = await db.bairros.get(Number(bId));
   const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${b.nome}</h2><p>Clientes</p></div></div>`;
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${b.nome}</h2><p>Gerenciando Região</p></div></div>`;
   let html = '<div class="animate-in">';
   for (const c of cs) {
     const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
     html += `
-      <div class="property-section" style="background: var(--surface-container); border-radius: 20px; padding: 20px; margin-bottom: 25px;">
+      <div class="property-section" style="background: var(--surface-container); border-radius: 20px; padding: 20px; margin-bottom: 25px; border: 1px solid var(--glass-border);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; font-size: 17px;">${c.nome}</h3>
-          <a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a>
+          <div><h3 style="margin: 0; font-size: 17px;">${c.nome}</h3><p style="font-size:10px; opacity:0.6;">${c.endereco}</p></div>
+          <div style="display:flex; gap:10px;"><a href="tel:${c.telefone}" class="icon-btn" style="width:36px; height:36px;"><span class="material-symbols-rounded">call</span></a><a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366; width:36px; height:36px;"><span class="material-symbols-rounded">chat</span></a></div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           ${es.map(e => `
-            <div class="card" style="margin:0; padding: 10px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;">
-              <img src="${getLogo(e.marca)}" style="width: 32px;" />
-              <p style="font-size: 10px; margin: 0;">${e.localizacao}</p>
-              <button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button>
+            <div class="card" style="margin:0; padding: 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div style="width:32px; height:32px; background:white; border-radius:6px; padding:4px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
+              <p style="font-size: 10px; margin: 0; font-weight:800;">${e.localizacao}</p>
+              <div style="display:flex; gap:5px;"><button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button><button class="icon-btn" onclick="window.renderEquipmentForm(${e.id}, ${c.id})" style="width:30px; height:30px;"><span class="material-symbols-rounded" style="font-size: 16px;">edit</span></button></div>
             </div>
           `).join('')}
         </div>
-        <button class="btn-primary" style="margin-top: 15px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ NOVO AR</button>
+        <button class="btn-primary" style="margin-top: 15px; font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ CADASTRAR NOVO AR</button>
       </div>`;
   }
   mainContent.innerHTML = html + '</div>';
@@ -273,25 +327,25 @@ function renderMais() {
     <div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">
       <div class="card" style="padding: 20px;">
         <div class="form-group"><label>Seu Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div>
-        <button class="btn-primary" id="b-s">SALVAR NOME</button>
+        <button class="btn-primary" id="b-s">SALVAR CONFIGURAÇÕES</button>
       </div>
       <div class="card" style="padding: 20px; background: rgba(0,242,255,0.05);">
-        <h3 style="font-size: 14px; margin-bottom: 10px;">SEGURANÇA (BACKUP)</h3>
-        <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Baixe seus dados regularmente para não perder nada.</p>
+        <h3 style="font-size: 14px; margin-bottom: 10px; color:var(--primary);">SEGURANÇA (BACKUP)</h3>
+        <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Baixe seus dados regularmente. Se o navegador for limpo, você pode restaurar por aqui.</p>
         <div style="display: flex; gap: 10px;">
-          <button class="btn-primary" id="b-exp" style="flex: 1;">EXPORTAR BACKUP</button>
+          <button class="btn-primary" id="b-exp" style="flex: 1;">EXPORTAR</button>
           <label class="btn-primary" style="flex: 1; text-align: center; background: var(--surface-container); color: var(--primary); cursor: pointer;">
             RESTAURAR <input type="file" id="b-imp" style="display: none;" accept=".json">
           </label>
         </div>
       </div>
-      <button class="btn-primary" style="background: var(--accent);" id="b-r">APAGAR TUDO</button>
+      <button class="btn-primary" style="background: var(--accent);" id="b-r">APAGAR TUDO (RESET)</button>
     </div>
   `;
   document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); location.reload(); };
   document.getElementById('b-exp').onclick = exportData;
   document.getElementById('b-imp').onchange = (e) => importData(e.target.files[0]);
-  document.getElementById('b-r').onclick = async () => { if(confirm('Apagar tudo?')) { await db.delete(); localStorage.clear(); location.reload(); } };
+  document.getElementById('b-r').onclick = async () => { if(confirm('Isso apagará todos os clientes e histórico. Tem certeza?')) { await db.delete(); localStorage.clear(); location.reload(); } };
 }
 
 async function init() {
