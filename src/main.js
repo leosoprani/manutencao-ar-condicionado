@@ -47,19 +47,30 @@ async function renderDashboard(sortBy = 'proximas') {
   if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
   const img = document.querySelector('.user-profile img');
   if (img) img.src = getAvatarUrl(av);
+  
   headerContent.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); border: none; color: var(--primary); font-weight: 700;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>GERAL</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>POR BAIRRO</option></select></div>`;
+
   const eqs = await db.equipamentos.toArray();
   const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
   let html = '<div class="dashboard-grid animate-in">';
   for (const e of sorted) {
     const c = await db.clientes.get(e.clienteId);
+    if (!c) continue;
     const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
-    html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; background:#ff9d00; color:black;">CORRETIVA</button></div></div>`;
+    html += `
+      <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
+          <div onclick="window.renderBairroDetail(${c.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
+          <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
+        </div>
+        <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; background:#ff9d00; color:black;">CORRETIVA</button></div>
+      </div>`;
   }
   mainContent.innerHTML = html + '</div>';
   const sSel = document.getElementById('d-s'); if (sSel) sSel.onchange = (e) => renderDashboard(e.target.value);
-  document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Preventiva'));
-  document.querySelectorAll('.q-m-cor').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Corretiva/Emergência'));
+  document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Preventiva'));
+  document.querySelectorAll('.q-m-cor').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Corretiva / Emergência'));
 }
 
 async function renderBairros() {
@@ -79,9 +90,10 @@ async function renderBairros() {
 }
 
 async function renderBairroDetail(bId, from = 'home') {
-  const b = await db.bairros.get(Number(bId));
-  const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Painel de Unidades</p></div></div><button class="btn-primary" onclick="window.renderPropertyForm(${bId})" style="width: 100%; background: var(--primary); color: black;">+ ADICIONAR NOVO APTO / PROPRIETÁRIO</button></div>`;
+  const bIdNum = Number(bId);
+  const b = await db.bairros.get(bIdNum);
+  const cs = await db.clientes.where('bairroId').equals(bIdNum).toArray();
+  headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Painel de Unidades</p></div></div><button class="btn-primary" onclick="window.renderPropertyForm(${bIdNum})" style="width: 100%; background: var(--primary); color: black;">+ ADICIONAR NOVO APTO / PROPRIETÁRIO</button></div>`;
   let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">';
   for (const c of cs) {
     const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
@@ -119,12 +131,13 @@ async function renderBairroDetail(bId, from = 'home') {
 }
 
 async function renderEquipmentHistory(eqId) {
-  const eq = await db.equipamentos.get(Number(eqId));
-  const os = await db.manutencoes.where('equipamentoId').equals(Number(eqId)).reverse().toArray();
+  const eqIdNum = Number(eqId);
+  const eq = await db.equipamentos.get(eqIdNum);
+  const os = await db.manutencoes.where('equipamentoId').equals(eqIdNum).reverse().toArray();
   openModal(`Histórico: ${eq.marca} - ${eq.localizacao}`);
   let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 12px; padding: 10px;">';
   for (const m of os) {
-    const isCor = m.descricao.includes('Corretiva');
+    const isCor = m.descricao && m.descricao.includes('Corretiva');
     html += `
       <div style="border-left: 2px solid ${isCor ? '#ff9d00' : 'var(--primary)'}; padding-left: 15px; position: relative;">
         <div style="width: 10px; height: 10px; background: ${isCor ? '#ff9d00' : 'var(--primary)'}; border-radius: 50%; position: absolute; left: -6px; top: 0;"></div>
@@ -137,6 +150,27 @@ async function renderEquipmentHistory(eqId) {
   modalBody.innerHTML = html + '</div>';
 }
 
+async function renderPropertyForm(bId) {
+  const bIdNum = Number(bId);
+  openModal('Novo Apartamento / Proprietário');
+  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Nome do Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>Unidade / Apto</label><input type="text" id="p-e" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">CADASTRAR UNIDADE</button></form>`;
+  document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: bIdNum, endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: '(83) 9' }); closeModal(); renderBairroDetail(bIdNum, 'bairros'); };
+}
+
+async function renderEquipmentForm(id = null, preCId = null) {
+  const idNum = id ? Number(id) : null;
+  const preCIdNum = preCId ? Number(preCId) : null;
+  const eq = idNum ? await db.equipamentos.get(idNum) : null;
+  openModal(idNum ? 'Editar Equipamento' : 'Novo Equipamento');
+  let sB = eq?.marca || 'Samsung';
+  const r = () => {
+    modalBody.innerHTML = `<form id="f-e"><label style="font-size:10px; font-weight:800; color:var(--primary); margin-bottom:12px; display:block; text-transform:uppercase;">Marca</label><div class="brand-grid" style="margin-bottom: 20px;">${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2.5px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}</div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>Capacidade (BTU)</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div><div class="form-group"><label>Potência (W/A)</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}"></div></div><div class="form-group" style="margin-top:10px;"><label>Localização (Cômodo)</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">SALVAR APARELHO</button></form>`;
+    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
+    document.getElementById('f-e').onsubmit = async (e) => { e.preventDefault(); const c = await db.clientes.get(preCIdNum || eq?.clienteId); const d = { marca: sB, btu: Number(document.getElementById('e-b').value), potencia: document.getElementById('e-p').value, modelo: '', localizacao: document.getElementById('e-l').value, unidade: c?.endereco, clienteId: c.id }; if (idNum) await db.equipamentos.update(idNum, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() }); closeModal(); renderBairroDetail(c.bairroId, 'bairros'); };
+  };
+  r();
+}
+
 async function renderMaintenanceForm(eqId = null, defaultType = '') {
   const eqs = await db.equipamentos.toArray();
   const cls = await db.clientes.toArray();
@@ -144,49 +178,34 @@ async function renderMaintenanceForm(eqId = null, defaultType = '') {
   openModal(defaultType || 'Registrar Serviço');
   let tab = eqId ? 'existente' : 'avulso';
   const r = () => {
-    modalBody.innerHTML = `
-      <div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'existente' ? 'black' : 'white'};">SALVO</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'avulso' ? 'black' : 'white'};">NOVO</button></div>
-      <form id="f-m">
-        ${tab === 'existente' ? `<div class="form-group"><label>Aparelho</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div></div>`}
-        <div class="form-group"><label>O que foi feito?</label><textarea id="m-d" class="form-control" rows="2" required>${defaultType ? defaultType + ': ' : ''}</textarea></div>
-        <div class="form-group"><label>Próxima Visita</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
-        <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">FINALIZAR REGISTRO</button>
-      </form>`;
+    modalBody.innerHTML = `<div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'existente' ? 'black' : 'white'};">SALVO</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'avulso' ? 'black' : 'white'};">NOVO</button></div><form id="f-m">${tab === 'existente' ? `<div class="form-group"><label>Aparelho</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div></div>`}<div class="form-group"><label>O que foi feito?</label><textarea id="m-d" class="form-control" rows="2" required>${defaultType ? defaultType + ': ' : ''}</textarea></div><div class="form-group"><label>Próxima Visita</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">FINALIZAR REGISTRO</button></form>`;
     document.getElementById('t-ex').onclick = () => { tab = 'existente'; r(); };
     document.getElementById('t-av').onclick = () => { tab = 'avulso'; r(); };
-    document.getElementById('f-m').onsubmit = async (e) => {
-      e.preventDefault();
-      let fId = eqId;
-      if (tab === 'avulso') {
-        const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' });
-        fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() });
-      } else { fId = Number(document.getElementById('m-eq').value); }
-      const nxD = new Date(document.getElementById('m-nx').value);
-      await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
-      await db.equipamentos.update(fId, { ultimaManutencao: new Date(), proximaManutencao: nxD });
-      closeModal(); renderDashboard();
-    };
+    document.getElementById('f-m').onsubmit = async (e) => { e.preventDefault(); let fId = eqId; if (tab === 'avulso') { const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' }); fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() }); } else { fId = Number(document.getElementById('m-eq').value); } const nxD = new Date(document.getElementById('m-nx').value); await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD }); await db.equipamentos.update(fId, { ultimaManutencao: new Date(), proximaManutencao: nxD }); closeModal(); renderDashboard(); };
   };
   r();
 }
 
-async function renderEquipmentForm(id = null, preCId = null) {
-  const eq = id ? await db.equipamentos.get(id) : null;
-  openModal(id ? 'Editar Equipamento' : 'Novo Equipamento');
-  let sB = eq?.marca || 'Samsung';
-  const r = () => {
-    modalBody.innerHTML = `<form id="f-e"><label style="font-size:10px; font-weight:800; color:var(--primary); margin-bottom:12px; display:block; text-transform:uppercase;">Marca</label><div class="brand-grid" style="margin-bottom: 20px;">${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2.5px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}</div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>Capacidade</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div><div class="form-group"><label>Potência (W/A)</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}"></div></div><div class="form-group" style="margin-top:10px;"><label>Localização (Cômodo)</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">SALVAR APARELHO</button></form>`;
-    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
-    document.getElementById('f-e').onsubmit = async (e) => { e.preventDefault(); const c = await db.clientes.get(preCId || eq?.clienteId); const d = { marca: sB, btu: Number(document.getElementById('e-b').value), potencia: document.getElementById('e-p').value, modelo: '', localizacao: document.getElementById('e-l').value, unidade: c?.endereco, clienteId: c.id }; if (id) await db.equipamentos.update(id, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() }); closeModal(); renderBairroDetail(c.bairroId, 'bairros'); };
-  };
-  r();
+async function renderHistorico() {
+  headerContent.innerHTML = '<h2 style="font-size:22px;">RELATÓRIOS</h2><p style="font-size:11px; opacity:0.5;">Histórico completo</p>';
+  const os = await db.manutencoes.reverse().toArray();
+  let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">';
+  for (const m of os) {
+    const e = await db.equipamentos.get(m.equipamentoId);
+    const c = e ? await db.clientes.get(e.clienteId) : null;
+    html += `<div class="card"><h4 style="margin:0; font-size:15px;">${c?.nome}</h4><p style="font-size:10px; color:var(--primary); font-weight:700; margin-top:5px;">${e?.marca} • ${new Date(m.dataRealizada).toLocaleDateString()}</p><p style="font-size: 13px; font-style: italic; background:rgba(0,0,0,0.1); padding:10px; border-radius:10px; margin-top:10px;">${m.descricao}</p></div>`;
+  }
+  mainContent.innerHTML = html + '</div>';
 }
 
-// ... other functions (bairro form, property form, mais, init) ...
-async function renderPropertyForm(bId) {
-  openModal('Novo Apartamento / Proprietário');
-  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Nome do Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>Unidade / Apto</label><input type="text" id="p-e" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div><button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">CADASTRAR UNIDADE</button></form>`;
-  document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); };
+function renderMais() {
+  const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
+  const an = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
+  const currentAvatar = localStorage.getItem('jampa_tech_avatar') || 'Felix';
+  headerContent.innerHTML = '<h2>AJUSTES</h2><p>Perfil e Sistema</p>';
+  mainContent.innerHTML = `<div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;"><div class="card"><label style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 15px; display: block;">Escolha seu Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${currentAvatar === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; overflow: hidden; border: 2px solid ${currentAvatar === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03);"><img src="${getAvatarUrl(s)}" style="width: 100%; display: block;" /></div>`).join('')}</div></div><div class="card"><div class="form-group"><label>Seu Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div><div class="form-group" style="margin-top:10px;"><label>Nome do App</label><input type="text" id="p-a" class="form-control" value="${an}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR AJUSTES</button></div><div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;"><h3 style="font-size: 14px; margin-bottom: 12px; color: var(--secondary); text-transform: uppercase;">SOBRE O SISTEMA</h3><p style="font-size: 12px; margin:0;"><b>Desenvolvido por:</b> Leonardo Soprani</p><p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.0 Premium Gold</p><p style="font-size: 12px; margin:0;"><b>Ano:</b> 2026</p><a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">CONTATO SUPORTE</a></div></div>`;
+  document.querySelectorAll('.avatar-option').forEach(opt => { opt.onclick = () => { const s = opt.dataset.seed; localStorage.setItem('jampa_tech_avatar', s); renderMais(); const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(s); }; });
+  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
 }
 
 async function renderBairroForm() {
@@ -195,26 +214,44 @@ async function renderBairroForm() {
   document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value }); closeModal(); renderBairros(); };
 }
 
-function renderMais() {
-  const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
-  const an = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
-  const currentAvatar = localStorage.getItem('jampa_tech_avatar') || 'Felix';
-  headerContent.innerHTML = '<h2>AJUSTES</h2><p>Perfil e Sistema</p>';
-  mainContent.innerHTML = `<div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;"><div class="card"><label style="font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 15px; display: block;">Escolha seu Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${currentAvatar === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; overflow: hidden; border: 2px solid ${currentAvatar === s ? 'var(--primary)' : 'transparent'}; background: rgba(255,255,255,0.03);"><img src="${getAvatarUrl(s)}" style="width: 100%; display: block;" /></div>`).join('')}</div></div><div class="card"><div class="form-group"><label>Seu Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div><div class="form-group" style="margin-top:10px;"><label>Nome do App</label><input type="text" id="p-a" class="form-control" value="${an}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR AJUSTES</button></div><div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;"><h3 style="font-size: 14px; margin-bottom: 12px; color: var(--secondary); text-transform: uppercase;">SOBRE O SISTEMA</h3><p style="font-size: 12px; margin:0;"><b>Desenvolvido por:</b> Leonardo Soprani</p><p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.0 Premium</p><p style="font-size: 12px; margin:0;"><b>Ano:</b> 2026</p><a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">CONTATO SUPORTE</a></div></div>`;
-  document.querySelectorAll('.avatar-option').forEach(opt => { opt.onclick = () => { const s = opt.dataset.seed; localStorage.setItem('jampa_tech_avatar', s); renderMais(); const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(s); }; });
-  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
-}
-
 async function init() {
-  const an = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
-  const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
-  const sn = document.getElementById('splash-app-name'); if (sn) sn.textContent = an;
-  const s = document.getElementById('splash-screen'); const sl = document.getElementById('splash-loader');
-  if (sl) setTimeout(() => sl.style.width = '100%', 100);
-  if (s) setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 800); }, 1500);
-  if (localStorage.getItem('jampa_reset_v14') !== 'done') { await db.delete(); await db.open(); await seedDatabase(); localStorage.setItem('jampa_reset_v14', 'done'); }
-  setupNavigation(); renderDashboard();
+  try {
+    const s = document.getElementById('splash-screen'); const sl = document.getElementById('splash-loader');
+    if (sl) setTimeout(() => sl.style.width = '100%', 100);
+    
+    // Ensure DB is ready
+    if (!db.isOpen()) await db.open();
+    if (localStorage.getItem('jampa_reset_v15') !== 'done') {
+      await db.delete(); await db.open(); await seedDatabase();
+      localStorage.setItem('jampa_reset_v15', 'done');
+    }
+
+    setupNavigation();
+    await renderDashboard();
+
+    // Hide splash after everything is ready
+    if (s) {
+      setTimeout(() => {
+        s.style.opacity = '0';
+        setTimeout(() => s.remove(), 800);
+      }, 1000);
+    }
+  } catch (err) {
+    console.error("Init Error:", err);
+    const s = document.getElementById('splash-screen');
+    if (s) s.innerHTML = `<div style="color:white; padding:20px; text-align:center;">Erro ao carregar banco de dados. Tente recarregar.</div>`;
+  }
 }
 
-window.renderBairros = renderBairros; window.renderDashboard = renderDashboard; window.renderHistorico = renderHistorico; window.renderMais = renderMais; window.renderBairroDetail = renderBairroDetail; window.renderEquipmentForm = renderEquipmentForm; window.renderPropertyForm = renderPropertyForm; window.renderEquipmentHistory = renderEquipmentHistory; window.deleteEquipment = async (id) => { if (confirm('Deseja realmente excluir?')) { const eq = await db.equipamentos.get(id); const c = await db.clientes.get(eq.clienteId); await db.equipamentos.delete(id); renderBairroDetail(c.bairroId, 'bairros'); } };
+// Global functions for window access
+window.renderBairros = renderBairros;
+window.renderDashboard = renderDashboard;
+window.renderHistorico = renderHistorico;
+window.renderMais = renderMais;
+window.renderBairroDetail = renderBairroDetail;
+window.renderEquipmentForm = renderEquipmentForm;
+window.renderPropertyForm = renderPropertyForm;
+window.renderEquipmentHistory = renderEquipmentHistory;
+window.deleteEquipment = async (id) => { if (confirm('Deseja realmente excluir?')) { const eq = await db.equipamentos.get(id); const c = await db.clientes.get(eq.clienteId); await db.equipamentos.delete(id); renderBairroDetail(c.bairroId, 'bairros'); } };
+
 init();
