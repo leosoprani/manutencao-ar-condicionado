@@ -38,8 +38,8 @@ if (btnNotif) btnNotif.onclick = () => {
 };
 
 const getLogo = (m) => {
-  if (m === 'Springer') return 'https://www.mideaspringer.com.br/wp-content/themes/midea-springer/assets/img/logo-springer.png';
-  if (m === 'Electrolux') return 'https://seeklogo.com/images/E/electrolux-logo-C727D95781-seeklogo.com.png';
+  if (m === 'Springer') return 'https://www.google.com/s2/favicons?sz=128&domain=springer.com.br';
+  if (m === 'Electrolux') return 'https://www.google.com/s2/favicons?sz=128&domain=electrolux.com.br';
   const domainMap = { 'Elgin': 'elgin.com.br',  'LG': 'lg.com', 'Samsung': 'samsung.com', 'Gree': 'gree.com.br', 'Midea': 'midea.com.br', 'Carrier': 'carrier.com', 'Fujitsu': 'fujitsu-general.com', 'Daikin': 'daikin.com.br', 'Philco': 'philco.com.br', 'Consul': 'consul.com.br' };
   const domain = domainMap[m] || 'google.com';
   return `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
