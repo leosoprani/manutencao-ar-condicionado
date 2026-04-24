@@ -3,37 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AR JAMPA | Gestão de Manutenção</title>
+  <title>AR JAMPA | Gestão Profissional</title>
   <meta name="theme-color" content="#050a10">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 </head>
 <body>
-  <div id="splash-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#050a10; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family:'Montserrat', sans-serif;">
-    <h1 id="splash-app-name" style="font-size:32px; font-weight:800; color:#00f2ff; margin-bottom:15px; text-transform:uppercase; letter-spacing:2px;">AR JAMPA</h1>
-    <div style="width:120px; height:2px; background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden;">
-      <div id="splash-loader" style="width:0%; height:100%; background:linear-gradient(90deg, #00f2ff, #7000ff); transition: width 0.5s;"></div>
+  <div id="splash-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#050a10; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white;">
+    <!-- Translucent stylized icon -->
+    <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity: 0.15; margin-bottom: 20px; filter: drop-shadow(0 0 10px var(--primary));">
+      <path d="M12 2L12 4M12 20L12 22M4 12H2M22 12H20M19.07 4.93L17.66 6.34M6.34 17.66L4.93 19.07M19.07 19.07L17.66 17.66M6.34 6.34L4.93 4.93M12 7C9.24 7 7 9.24 7 12C7 14.76 9.24 17 12 17C14.76 17 17 14.76 17 12C17 9.24 14.76 7 12 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M12 9V12L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1 id="splash-app-name" style="font-family:'Montserrat', sans-serif; font-size:28px; font-weight:800; color:#00f2ff; margin-bottom:15px; text-transform:uppercase; letter-spacing:4px; opacity: 0.9;">AR JAMPA</h1>
+    <div style="width:100px; height:1px; background:rgba(255,255,255,0.1); border-radius:10px; overflow:hidden;">
+      <div id="splash-loader" style="width:0%; height:100%; background:var(--primary); transition: width 0.5s;"></div>
     </div>
-    <p style="opacity:0.4; font-size:10px; margin-top:20px; font-family:'Inter', sans-serif; letter-spacing:3px; font-weight:600;">SISTEMA DE GESTÃO PREMIUM</p>
   </div>
 
   <div class="app-container">
     <header class="top-bar">
       <div class="user-profile">
-        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Leo" alt="User">
+        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&top=shortHair&mouth=smile" alt="User">
         <div class="user-info">
           <span class="user-greeting">Olá,</span>
           <span class="user-name" id="display-user-name">Técnico</span>
         </div>
       </div>
-      <div id="header-app-name" style="position: absolute; left: 50%; transform: translateX(-50%); font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 14px; color: var(--primary); text-shadow: 0 0 10px var(--primary-glow); text-transform: uppercase; letter-spacing: 2px; white-space: nowrap;">AR JAMPA</div>
+      <!-- Removed header-app-name for cleaner Home -->
       <div class="top-actions">
-        <button class="icon-btn" id="btn-notifications"><span class="material-symbols-rounded">notifications</span></button>
+        <button class="icon-btn" id="btn-notifications"><span class="material-symbols-rounded" style="font-size: 20px;">notifications</span></button>
       </div>
     </header>
 
@@ -42,9 +46,9 @@
 
     <nav class="bottom-nav">
       <button class="nav-item active" data-view="home"><span class="material-symbols-rounded">home</span><span>Home</span></button>
-      <button class="nav-item" data-view="bairros"><span class="material-symbols-rounded">app_registration</span><span>Cadastrar</span></button>
-      <button class="nav-item" data-view="os"><span class="material-symbols-rounded">history</span><span>Histórico</span></button>
-      <button class="nav-item" data-view="mais"><span class="material-symbols-rounded">more_horiz</span><span>Perfil</span></button>
+      <button class="nav-item" data-view="bairros"><span class="material-symbols-rounded">location_city</span><span>Cadastrar</span></button>
+      <button class="nav-item" data-view="os"><span class="material-symbols-rounded">receipt_long</span><span>Histórico</span></button>
+      <button class="nav-item" data-view="mais"><span class="material-symbols-rounded">settings</span><span>Ajustes</span></button>
     </nav>
 
     <button class="fab" id="fab-add"><span class="material-symbols-rounded">add</span></button>
