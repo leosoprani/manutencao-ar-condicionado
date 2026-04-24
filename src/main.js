@@ -41,6 +41,40 @@ function setupNavigation() {
   });
 }
 
+// BACKUP & RESTORE LOGIC
+async function exportData() {
+  const bairros = await db.bairros.toArray();
+  const clientes = await db.clientes.toArray();
+  const equipamentos = await db.equipamentos.toArray();
+  const manutencoes = await db.manutencoes.toArray();
+  const backup = { bairros, clientes, equipamentos, manutencoes, date: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup_arjampa_${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  localStorage.setItem('jampa_last_backup', new Date().getTime());
+  renderDashboard();
+}
+
+async function importData(file) {
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      await db.delete(); await db.open();
+      if (data.bairros) await db.bairros.bulkAdd(data.bairros);
+      if (data.clientes) await db.clientes.bulkAdd(data.clientes);
+      if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos);
+      if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes);
+      alert('Backup Restaurado com Sucesso!');
+      location.reload();
+    } catch (err) { alert('Arquivo Inválido ou Corrompido!'); }
+  };
+  reader.readAsText(file);
+}
+
 async function renderDashboard(sortBy = 'proximas') {
   const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
   const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
@@ -60,24 +94,50 @@ async function renderDashboard(sortBy = 'proximas') {
     </div>
   `;
 
+  // BACKUP ALERT CARD
+  const lastBackup = localStorage.getItem('jampa_last_backup');
+  const now = new Date().getTime();
+  const oneDay = 24 * 60 * 60 * 1000;
+  let backupAlert = '';
+  if (!lastBackup || (now - lastBackup) > oneDay) {
+    backupAlert = `
+      <div id="backup-alert" class="animate-in" style="background: linear-gradient(135deg, #ff9d00, #ff5e00); padding: 14px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; color: white; cursor: pointer; box-shadow: 0 8px 20px rgba(255, 157, 0, 0.2);">
+        <span class="material-symbols-rounded">security</span>
+        <div style="flex: 1;"><p style="margin:0; font-size: 11px; font-weight: 800; text-transform:uppercase;">Proteção Necessária</p><p style="margin:0; font-size: 9px; opacity: 0.9;">Clique para fazer o backup dos dados agora.</p></div>
+        <span class="material-symbols-rounded" style="font-size:18px;">arrow_forward_ios</span>
+      </div>
+    `;
+  }
+
   const eqs = await db.equipamentos.toArray();
   const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
-  let html = '<div class="dashboard-grid animate-in">';
-  for (const e of sorted) {
-    const c = await db.clientes.get(e.clienteId);
-    const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
-    html += `
-      <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
-          <div style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
-          <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
-        </div>
-        <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">REGISTRAR</button></div>
-      </div>`;
+  let html = backupAlert + '<div class="dashboard-grid animate-in">';
+  
+  if (sortBy === 'bairro') {
+    const bairros = await db.bairros.toArray();
+    for (const b of bairros) {
+      const cids = (await db.clientes.where('bairroId').equals(b.id).toArray()).map(c => c.id);
+      const eqCount = await db.equipamentos.where('clienteId').anyOf(cids).count();
+      html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'home')" style="border-left: 3px solid ${b.cor || 'var(--primary)'}; padding: 15px;"><h3 style="margin:0; font-size:13px; text-transform:uppercase;">${b.nome}</h3><p style="font-size:10px; opacity:0.5; margin-top:5px;">${eqCount} UNIDADES</p></div>`;
+    }
+  } else {
+    for (const e of sorted) {
+      const c = await db.clientes.get(e.clienteId);
+      const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
+      html += `
+        <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
+            <div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
+            <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
+          </div>
+          <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">REGISTRAR</button></div>
+        </div>`;
+    }
   }
   mainContent.innerHTML = html + '</div>';
   const sSel = document.getElementById('d-s'); if (sSel) sSel.onchange = (e) => renderDashboard(e.target.value);
+  const bAlert = document.getElementById('backup-alert'); if (bAlert) bAlert.onclick = exportData;
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
@@ -85,14 +145,14 @@ async function renderBairros() {
   headerContent.innerHTML = '<h2 style="font-size:22px;">ZONAS DE ATENDIMENTO</h2><p style="font-size:11px; opacity:0.5;">Gestão operacional</p>';
   const bairros = await db.bairros.toArray();
   const today = new Date();
-  let html = '<div style="display: flex; gap: 10px; margin-bottom: 25px;"><button class="btn-primary" id="b-n-b" style="flex: 1;">+ NOVO BAIRRO</button><button class="btn-primary" id="b-n-p" style="flex: 1; background: #1e293b; color: var(--primary);">+ PROPRIEDADE</button></div><div class="dashboard-grid animate-in" style="height: auto; overflow: visible;">';
+  let html = '<div style="display: flex; gap: 10px; margin-bottom: 25px;"><button class="btn-primary" id="b-n-b" style="flex: 1;">+ NOVO BAIRRO</button><button class="btn-primary" id="b-n-p" style="flex: 1; background: #1e293b; color: var(--primary);">+ PROPRIEDADE</button></div><div class="dashboard-grid animate-in">';
   for (const b of bairros) {
     const clients = await db.clientes.where('bairroId').equals(b.id).toArray();
     const cids = clients.map(c => c.id);
     const eqsInB = await db.equipamentos.where('clienteId').anyOf(cids).toArray();
     const totalAtrasados = eqsInB.filter(e => new Date(e.proximaManutencao) <= today).length;
     html += `
-      <div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; background: rgba(255,255,255,0.02); padding: 18px; height: auto;">
+      <div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; background: rgba(255,255,255,0.02); padding: 18px;">
         <h3 style="margin:0; font-size:14px; text-transform:uppercase;">${b.nome}</h3>
         <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
            <span style="font-size:11px; font-weight:700; color:var(--text-secondary);">${totalAtrasados} PENDENTES</span>
@@ -105,7 +165,7 @@ async function renderBairros() {
 }
 
 async function renderHistorico() {
-  headerContent.innerHTML = '<h2 style="font-size:22px;">RELATÓRIOS</h2><p style="font-size:11px; opacity:0.5;">Histórico de serviços</p>';
+  headerContent.innerHTML = '<h2 style="font-size:22px;">RELATÓRIOS</h2><p style="font-size:11px; opacity:0.5;">Histórico completo</p>';
   const os = await db.manutencoes.reverse().toArray();
   let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">';
   for (const m of os) {
@@ -121,11 +181,118 @@ async function renderHistorico() {
   mainContent.innerHTML = html + '</div>';
 }
 
+async function renderBairroDetail(bId, from = 'home') {
+  const b = await db.bairros.get(Number(bId));
+  const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Clientes</p></div></div>`;
+  let html = '<div class="animate-in">';
+  for (const c of cs) {
+    const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
+    html += `
+      <div class="card" style="background: var(--surface-container); padding: 20px; border: 1px solid var(--glass-border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div><h3 style="margin: 0; font-size: 17px;">${c.nome}</h3><p style="font-size:11px; opacity:0.5;">${c.endereco}</p></div>
+          <a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${es.map(e => `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center;"><img src="${getLogo(e.marca)}" style="width: 24px; height:24px; object-fit:contain;" /><p style="font-size: 9px; margin: 5px 0; font-weight:800;">${e.localizacao}</p><button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px; margin: 0 auto; background:var(--primary); color:black;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button></div>`).join('')}
+        </div>
+        <button class="btn-primary" style="margin-top: 15px; width:100%; font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ NOVO AR</button>
+      </div>`;
+  }
+  mainContent.innerHTML = html + '</div>';
+  document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
+}
+
+async function renderBairroForm() {
+  openModal('Novo Bairro');
+  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><div class="form-group"><label>Cor</label><input type="color" id="b-c" class="form-control" value="#00f2ff"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">CADASTRAR</button></form>';
+  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value }); closeModal(); renderBairros(); };
+}
+
+async function renderPropertyForm() {
+  const brs = await db.bairros.toArray();
+  openModal('Nova Propriedade');
+  modalBody.innerHTML = `
+    <form id="f-p">
+      <div class="form-group"><label>Nome</label><input type="text" id="p-n" class="form-control" required></div>
+      <div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Endereço</label><input type="text" id="p-e" class="form-control" required></div>
+      <div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div>
+      <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">SALVAR</button>
+    </form>`;
+  document.getElementById('f-p').onsubmit = async (e) => {
+    e.preventDefault();
+    await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: '(83) 9' });
+    closeModal(); renderBairros();
+  };
+}
+
+async function renderEquipmentForm(id = null, preCId = null) {
+  const eq = id ? await db.equipamentos.get(id) : null;
+  openModal(id ? 'Editar Ar' : 'Novo Ar');
+  let sB = eq?.marca || 'Samsung';
+  const r = () => {
+    modalBody.innerHTML = `
+      <form id="f-e">
+        <div class="brand-grid" style="margin-bottom: 20px;">
+          ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
+           <div class="form-group"><label>Capacidade</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
+           <div class="form-group"><label>Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Sala"></div>
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">SALVAR</button>
+      </form>`;
+    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
+    document.getElementById('f-e').onsubmit = async (e) => {
+      e.preventDefault();
+      const d = { marca: sB, btu: Number(document.getElementById('e-b').value), modelo: '', localizacao: document.getElementById('e-u').value, unidade: document.getElementById('e-u').value, clienteId: preCId || eq?.clienteId };
+      if (id) await db.equipamentos.update(id, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() });
+      closeModal(); renderDashboard();
+    };
+  };
+  r();
+}
+
+async function renderMaintenanceForm(eqId = null) {
+  const eqs = await db.equipamentos.toArray();
+  const cls = await db.clientes.toArray();
+  const brs = await db.bairros.toArray();
+  openModal('Registrar Serviço');
+  let tab = eqId ? 'existente' : 'avulso';
+  const r = () => {
+    modalBody.innerHTML = `
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'existente' ? 'black' : 'white'};">SALVO</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'avulso' ? 'black' : 'white'};">NOVO</button></div>
+      <form id="f-m">
+        ${tab === 'existente' ? `<div class="form-group"><label>Aparelho</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div></div>`}
+        <div class="form-group"><label>Descrição</label><textarea id="m-d" class="form-control" rows="2" required placeholder="O que foi feito?"></textarea></div>
+        <div class="form-group"><label>Próxima Visita</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">REGISTRAR</button>
+      </form>`;
+    document.getElementById('t-ex').onclick = () => { tab = 'existente'; r(); };
+    document.getElementById('t-av').onclick = () => { tab = 'avulso'; r(); };
+    document.getElementById('f-m').onsubmit = async (e) => {
+      e.preventDefault();
+      let fId = eqId;
+      if (tab === 'avulso') {
+        const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' });
+        fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() });
+      } else { fId = Number(document.getElementById('m-eq').value); }
+      const nxD = new Date(document.getElementById('m-nx').value);
+      await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
+      await db.equipamentos.update(fId, { ultimaManutencao: new Date(), proximaManutencao: nxD });
+      closeModal(); renderDashboard();
+    };
+  };
+  r();
+}
+
 function renderMais() {
   const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
   const an = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
   const currentAvatar = localStorage.getItem('jampa_tech_avatar') || 'Felix';
-  headerContent.innerHTML = '<h2>AJUSTES</h2><p>Perfil e sistema</p>';
+  headerContent.innerHTML = '<h2>AJUSTES</h2><p>Perfil e Segurança</p>';
   mainContent.innerHTML = `
     <div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;">
       <div class="card">
@@ -140,25 +307,33 @@ function renderMais() {
       <div class="card">
         <div class="form-group"><label>Seu Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div>
         <div class="form-group" style="margin-top:10px;"><label>Nome do App</label><input type="text" id="p-a" class="form-control" value="${an}"></div>
-        <button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR</button>
+        <button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR AJUSTES</button>
       </div>
-      
-      <!-- Informações de Desenvolvedor e Suporte -->
-      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px; margin-top: 20px;">
-        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--secondary); text-transform: uppercase;">SOBRE O SISTEMA</h3>
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
-          <p style="margin:0;"><b>Desenvolvido por:</b> Leonardo Soprani</p>
-          <p style="margin:0;"><b>Versão:</b> 3.0.0 Gold Premium</p>
-          <p style="margin:0;"><b>Ano de Criação:</b> 2026</p>
-        </div>
-        <div style="margin-top: 20px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
-          <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366; box-shadow: 0 5px 15px rgba(37,211,102,0.2);">
-            <span class="material-symbols-rounded" style="font-size: 18px;">support_agent</span> CONTATO SUPORTE
-          </a>
+
+      <div class="card" style="background: rgba(0, 242, 255, 0.03); border-color: var(--primary-glow);">
+        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--primary); text-transform: uppercase;">BACKUP E SEGURANÇA</h3>
+        <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Mantenha seus dados seguros. Exportar gera um arquivo que você pode guardar fora do celular.</p>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-primary" id="b-exp" style="flex: 1;">EXPORTAR</button>
+          <label class="btn-primary" style="flex: 1; background: #1e293b; color: var(--primary); cursor: pointer; text-align:center;">
+             RESTAURAR <input type="file" id="b-imp" style="display: none;" accept=".json">
+          </label>
         </div>
       </div>
 
-      <button class="btn-primary" style="background:var(--accent); width:100%;" onclick="if(confirm('Apagar tudo?')){localStorage.clear();location.reload();}">RESET TOTAL</button>
+      <div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;">
+        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--secondary); text-transform: uppercase;">SOBRE O SISTEMA</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+          <p style="margin:0;"><b>Desenvolvido por:</b> Leonardo Soprani</p>
+          <p style="margin:0;"><b>Versão:</b> 3.0.0 Premium Gold</p>
+          <p style="margin:0;"><b>Ano:</b> 2026</p>
+        </div>
+        <div style="margin-top: 20px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
+          <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background: #25D366;">
+            CONTATO SUPORTE
+          </a>
+        </div>
+      </div>
     </div>`;
   document.querySelectorAll('.avatar-option').forEach(opt => {
     opt.onclick = () => {
@@ -171,6 +346,8 @@ function renderMais() {
     localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); 
     location.reload(); 
   };
+  document.getElementById('b-exp').onclick = exportData;
+  document.getElementById('b-imp').onchange = (e) => importData(e.target.files[0]);
 }
 
 async function init() {
@@ -188,6 +365,7 @@ window.renderBairros = renderBairros;
 window.renderDashboard = renderDashboard;
 window.renderHistorico = renderHistorico;
 window.renderMais = renderMais;
-window.renderBairroDetail = (id, f) => { console.log('detail'); }; // restore full if needed
+window.renderBairroDetail = renderBairroDetail;
+window.renderEquipmentForm = renderEquipmentForm;
 
 init();
