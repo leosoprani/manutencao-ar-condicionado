@@ -8,6 +8,8 @@ const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 const closeModalBtn = document.getElementById('btn-close-modal');
 
+let currentHomeFilter = 'vencimentos'; // Default filter
+
 const marcas = ['EOS', 'AGRATTO', 'LG', 'Samsung', 'Gree', 'Midea', 'Springer', 'Carrier', 'Fujitsu', 'Daikin', 'Electrolux', 'Philco', 'Consul', 'Hitachi', 'Comfee', 'Elgin'];
 const btus = [9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000];
 const avatarSeeds = ['Felix', 'Leo', 'Max', 'Oliver', 'Jack', 'Charlie', 'Milo', 'Oscar', 'Jasper', 'Harry', 'Theo', 'Noah'];
@@ -42,9 +44,8 @@ window.showNotifications = () => {
   modalBody.innerHTML = '<div style="padding:40px 20px; text-align:center; opacity:0.5;"><span class="material-symbols-rounded" style="font-size:48px; margin-bottom:15px;">notifications_off</span><p>Não há novas atualizações no momento.</p></div>';
 };
 
-// ACTIONS: EDIT/DELETE
 window.deleteItem = async (type, id) => {
-  if (confirm(`Tem certeza que deseja excluir este ${type}?`)) {
+  if (confirm(`Excluir ${type}?`)) {
     if (type === 'bairro') await db.bairros.delete(id);
     else if (type === 'cliente') await db.clientes.delete(id);
     else if (type === 'equipamento') await db.equipamentos.delete(id);
@@ -96,19 +97,48 @@ async function renderDashboard(searchTerm = '') {
     const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
     if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
     const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(av);
-    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><h2 style="font-size: 24px; margin:0; font-weight:800; letter-spacing:-1px;">Agenda</h2><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div></div>`;
+    
+    // Header with Filter Pills
+    headerContent.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+        <h2 style="font-size: 24px; margin:0; font-weight:800; letter-spacing:-1px;">Agenda</h2>
+        <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none;">
+          <button class="pill ${currentHomeFilter === 'vencimentos' ? 'active' : ''}" onclick="window.setHomeFilter('vencimentos')">VENCIMENTOS</button>
+          <button class="pill ${currentHomeFilter === 'vencidos' ? 'active' : ''}" onclick="window.setHomeFilter('vencidos')">VENCIDOS</button>
+          <button class="pill ${currentHomeFilter === 'alfabetica' ? 'active' : ''}" onclick="window.setHomeFilter('alfabetica')">ALFABÉTICA</button>
+        </div>
+        <div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div>
+      </div>`;
     const sInp = document.getElementById('main-search'); if (sInp) sInp.oninput = (e) => renderDashboard(e.target.value);
+
     let html = '';
     const lastB = localStorage.getItem('last_jampa_backup');
     if (!lastB || (Date.now() - Number(lastB) > 604800000)) {
       html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
     }
+
     const eqs = await db.equipamentos.toArray();
-    const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
+    const clsList = await db.clientes.toArray();
+    
+    // Filtering and Sorting Logic
+    let filtered = eqs;
+    if (currentHomeFilter === 'vencidos') {
+      filtered = eqs.filter(e => Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000) <= 0);
+    }
+    
+    let sorted = filtered.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
+    if (currentHomeFilter === 'alfabetica') {
+      sorted = filtered.sort((a,b) => {
+        const cA = clsList.find(c => c.id === a.clienteId)?.nome || '';
+        const cB = clsList.find(c => c.id === b.clienteId)?.nome || '';
+        return cA.localeCompare(cB);
+      });
+    }
+
     html += '<div class="dashboard-grid animate-in">';
     const lS = searchTerm.toLowerCase();
     for (const e of sorted) {
-      const c = await db.clientes.get(e.clienteId);
+      const c = clsList.find(cl => cl.id === e.clienteId);
       if (!c || (searchTerm && !c.nome.toLowerCase().includes(lS) && !e.marca.toLowerCase().includes(lS))) continue;
       const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
       const diffColor = diff <= 0 ? '#ff4d4d' : (diff <= 7 ? '#ff9d00' : 'var(--primary)');
@@ -117,6 +147,8 @@ async function renderDashboard(searchTerm = '') {
     mainContent.innerHTML = html + '</div>';
   } catch (err) { console.error(err); }
 }
+
+window.setHomeFilter = (f) => { currentHomeFilter = f; renderDashboard(); };
 
 async function renderBairros(searchTerm = '') {
   try {
@@ -216,7 +248,7 @@ async function renderMais() {
         <p style="font-size: 12px; opacity: 0.6; margin: 4px 0 20px;">Desenvolvedor Full Stack • 2026</p>
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
           <span style="font-size: 10px; font-weight: 800; color: #888;">VERSÃO 3.0.5 TITANIUM</span>
-          <a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; color: white; padding: 10px 188x; font-size: 11px; border-radius: 12px; width:auto;">WHATSAPP</a>
+          <a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; color: white; padding: 10px 18px; font-size: 11px; border-radius: 12px; width:auto;">WHATSAPP</a>
         </div>
       </div>
     </div>`;
