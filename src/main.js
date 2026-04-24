@@ -37,7 +37,6 @@ function setupNavigation() {
   });
 }
 
-// Global Notification Action
 window.showNotifications = () => {
   openModal('Notificações');
   modalBody.innerHTML = '<div style="padding:40px 20px; text-align:center; opacity:0.5;"><span class="material-symbols-rounded" style="font-size:48px; margin-bottom:15px;">notifications_off</span><p>Não há novas atualizações no momento.</p></div>';
@@ -85,17 +84,17 @@ async function renderDashboard(searchTerm = '') {
   try {
     const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
     const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
+    const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
     if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
     const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(av);
     
-    // Clean Home Header (Removed App Name)
     headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><h2 style="font-size: 24px; margin:0; font-weight:800; letter-spacing:-1px;">Agenda</h2><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div></div>`;
     const sInp = document.getElementById('main-search'); if (sInp) sInp.oninput = (e) => renderDashboard(e.target.value);
 
     let html = '';
     const lastB = localStorage.getItem('last_jampa_backup');
     if (!lastB || (Date.now() - Number(lastB) > 604800000)) {
-      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px; margin-left:20px; margin-right:20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
+      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
     }
 
     const eqs = await db.equipamentos.toArray();
@@ -114,9 +113,35 @@ async function renderDashboard(searchTerm = '') {
 
 async function renderBairros(searchTerm = '') {
   try {
-    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 22px; margin:0;">CADASTRAR</h2><button class="btn-primary" id="b-n-b" style="width:auto; font-size:10px; padding: 8px 15px;">+ NOVO EDIFÍCIO</button></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar..." value="${searchTerm}"></div></div>`;
+    headerContent.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 22px; margin:0;">CADASTRAR</h2>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-primary" id="b-n-b" style="width:auto; font-size:9px; padding: 8px 12px; background:#1e293b; color:var(--primary); border:1px solid var(--primary);">+ PRÉDIO</button>
+            <button class="btn-primary" id="b-n-u" style="width:auto; font-size:9px; padding: 8px 12px;">+ UNIDADE</button>
+          </div>
+        </div>
+        <div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar..." value="${searchTerm}"></div>
+      </div>`;
+    
+    document.getElementById('b-n-b').onclick = () => renderBairroForm();
+    document.getElementById('b-n-u').onclick = () => {
+      openModal('Nova Unidade (Rápido)');
+      modalBody.innerHTML = '<p style="font-size:12px; opacity:0.6; margin-bottom:15px;">Escolha o Edifício abaixo:</p><div id="quick-buildings" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>';
+      db.bairros.toArray().then(bs => {
+        const qb = document.getElementById('quick-buildings');
+        bs.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'card'; div.style.margin = '0'; div.style.padding = '15px'; div.style.textAlign = 'center'; div.style.fontSize = '12px';
+          div.textContent = b.nome;
+          div.onclick = () => { closeModal(); window.renderPropertyForm(b.id); };
+          qb.appendChild(div);
+        });
+      });
+    };
+
     const bsInp = document.getElementById('bairro-search'); if (bsInp) bsInp.oninput = (e) => renderBairros(e.target.value);
-    const bnb = document.getElementById('b-n-b'); if (bnb) bnb.onclick = () => renderBairroForm();
     const bairros = await db.bairros.toArray();
     let html = '<div class="dashboard-grid animate-in" style="margin-top:10px; padding:0 20px;">';
     const lS = searchTerm.toLowerCase();
@@ -226,8 +251,29 @@ async function init() {
   } catch (err) { console.error(err); if (document.getElementById('splash-screen')) document.getElementById('splash-screen').style.display = 'none'; }
 }
 
-window.exportData = async () => { /* ... */ };
-window.importData = () => { /* ... */ };
+window.exportData = async () => {
+  const data = { bairros: await db.bairros.toArray(), clientes: await db.clientes.toArray(), equipamentos: await db.equipamentos.toArray(), manutencoes: await db.manutencoes.toArray() };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_jampa.json`; a.click();
+  localStorage.setItem('last_jampa_backup', Date.now().toString()); renderDashboard();
+};
+
+window.importData = () => {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (confirm('Restaurar dados?')) { await db.delete(); await db.open(); if (data.bairros) await db.bairros.bulkAdd(data.bairros); if (data.clientes) await db.clientes.bulkAdd(data.clientes); if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos); if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes); location.reload(); }
+      } catch (err) { alert('Erro'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
+
 window.renderPropertyForm = (bId) => { openModal('Novo Apto'); modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Dono / Proprietário</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group"><label>Unidade / Apto</label><input type="text" id="p-e" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:10px;">CADASTRAR UNIDADE</button></form>`; document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); }; };
 async function renderBairroForm() { openModal('Novo Edifício'); modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome do Edifício</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:10px;">CADASTRAR</button></form>'; document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value }); closeModal(); renderBairros(); }; }
 
