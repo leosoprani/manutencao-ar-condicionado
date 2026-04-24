@@ -15,54 +15,61 @@ const btus = [9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000];
 const avatarSeeds = ['Felix', 'Leo', 'Max', 'Oliver', 'Jack', 'Charlie', 'Milo', 'Oscar', 'Jasper', 'Harry', 'Theo', 'Noah'];
 const getAvatarUrl = (s) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
 
+// --- CORE UTILS ---
 function openModal(title) { if (modalTitle) modalTitle.textContent = title; if (modalOverlay) modalOverlay.classList.add('active'); }
 function closeModal() { if (modalOverlay) modalOverlay.classList.remove('active'); }
-if (closeModalBtn) closeModalBtn.onclick = closeModal;
-if (fabAdd) fabAdd.onclick = () => renderMaintenanceForm();
-if (avatarBtn) avatarBtn.onclick = () => renderMais();
+const getLogo = (m) => { const n = (m || 'Samsung').toLowerCase(); return `brands/${n}.${n === 'samsung' ? 'jpg' : 'png'}`; };
 
-const getLogo = (m) => {
-  const name = (m || 'Samsung').toLowerCase();
-  const ext = (name === 'samsung') ? 'jpg' : 'png';
-  return `brands/${name}.${ext}`;
+// --- GLOBAL ACTIONS (MUST BE BEFORE RENDER) ---
+window.renderEquipmentHistory = async function(eqId) {
+  try {
+    const eq = await db.equipamentos.get(Number(eqId));
+    if (!eq) return;
+    const os = await db.manutencoes.where('equipamentoId').equals(Number(eqId)).reverse().toArray();
+    openModal(`Histórico: ${eq.marca} - ${eq.localizacao}`);
+    let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 12px; padding: 10px;">';
+    for (const m of os) {
+      const isCor = m.descricao && m.descricao.includes('Corretiva');
+      html += `<div style="border-left: 2px solid ${isCor ? '#ff9d00' : 'var(--primary)'}; padding-left: 15px; position: relative;"><div style="width: 10px; height: 10px; background: ${isCor ? '#ff9d00' : 'var(--primary)'}; border-radius: 50%; position: absolute; left: -6px; top: 0;"></div><p style="font-size: 11px; font-weight: 800; color: ${isCor ? '#ff9d00' : 'var(--primary)'}; margin: 0;">${new Date(m.dataRealizada).toLocaleDateString()} ${isCor ? '[EMERGÊNCIA]' : ''}</p><p style="font-size: 13px; color: white; margin: 5px 0;">${m.descricao}</p></div>`;
+    }
+    if (os.length === 0) html += '<p style="text-align:center; opacity:0.3; padding:20px;">Sem registros.</p>';
+    modalBody.innerHTML = html + '</div>';
+  } catch (err) { console.error(err); }
 };
 
-function setupNavigation() {
-  navItems.forEach(item => {
-    item.addEventListener('click', () => {
-      navItems.forEach(n => n.classList.remove('active'));
-      item.classList.add('active');
-      const v = item.dataset.view;
-      if (v === 'home') renderDashboard();
-      else if (v === 'bairros') renderBairros();
-      else if (v === 'os') renderHistorico();
-      else if (v === 'mais') renderMais();
-    });
-  });
-}
+window.exportData = async () => {
+  const data = { bairros: await db.bairros.toArray(), clientes: await db.clientes.toArray(), equipamentos: await db.equipamentos.toArray(), manutencoes: await db.manutencoes.toArray() };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_jampa.json`; a.click();
+  localStorage.setItem('last_jampa_backup', Date.now().toString()); renderDashboard();
+};
 
+window.importData = () => {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (confirm('Restaurar dados?')) { await db.delete(); await db.open(); if (data.bairros) await db.bairros.bulkAdd(data.bairros); if (data.clientes) await db.clientes.bulkAdd(data.clientes); if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos); if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes); location.reload(); }
+      } catch (err) { alert('Erro'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
+
+// --- RENDERING FUNCTIONS ---
 async function renderDashboard(searchTerm = '') {
   try {
     const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
     const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
     if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
-    const img = document.querySelector('.user-profile img');
-    if (img) img.src = getAvatarUrl(av);
+    const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(av);
     
-    headerContent.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="font-size: 20px; margin:0;">Agenda</h2>
-          <span style="font-size:10px; opacity:0.5; font-weight:700; text-transform:uppercase;">Ar Jampa v3</span>
-        </div>
-        <div class="search-box">
-          <span class="material-symbols-rounded">search</span>
-          <input type="text" id="main-search" placeholder="Buscar cliente ou marca..." value="${searchTerm}">
-        </div>
-      </div>`;
-
-    const sInp = document.getElementById('main-search');
-    if (sInp) sInp.oninput = (e) => renderDashboard(e.target.value);
+    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><span style="font-size:10px; opacity:0.5; font-weight:700;">PRO GOLD</span></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente ou marca..." value="${searchTerm}"></div></div>`;
+    const sInp = document.getElementById('main-search'); if (sInp) { sInp.oninput = (e) => renderDashboard(e.target.value); sInp.focus(); }
 
     let html = '';
     const lastB = localStorage.getItem('last_jampa_backup');
@@ -73,28 +80,15 @@ async function renderDashboard(searchTerm = '') {
     const eqs = await db.equipamentos.toArray();
     const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
     html += '<div class="dashboard-grid animate-in">';
-    
-    const lowerSearch = searchTerm.toLowerCase();
+    const lS = searchTerm.toLowerCase();
     for (const e of sorted) {
       const c = await db.clientes.get(e.clienteId);
       if (!c) continue;
-      
-      if (searchTerm && !c.nome.toLowerCase().includes(lowerSearch) && !e.marca.toLowerCase().includes(lowerSearch)) continue;
-
+      if (searchTerm && !c.nome.toLowerCase().includes(lS) && !e.marca.toLowerCase().includes(lS)) continue;
       const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
-      const ultima = e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma';
-      const proxima = new Date(e.proximaManutencao).toLocaleDateString();
-
-      html += `
-        <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
-          <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
-            <div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
-            <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${ultima}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${proxima}</p></div></div>
-          <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1; font-size:10px; padding:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; font-size:10px; padding:10px; background:#ff9d00; color:black;">CORRETIVA</button></div>
-        </div>`;
+      const ult = e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma';
+      const prox = new Date(e.proximaManutencao).toLocaleDateString();
+      html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${ult}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${prox}</p></div></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1; font-size:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; font-size:10px; background:#ff9d00; color:black;">CORRETIVA</button></div></div>`;
     }
     mainContent.innerHTML = html + '</div>';
     document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Preventiva'));
@@ -104,33 +98,16 @@ async function renderDashboard(searchTerm = '') {
 
 async function renderBairros(searchTerm = '') {
   try {
-    headerContent.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="font-size: 22px; margin:0;">CADASTRAR</h2>
-          <button class="btn-primary" id="b-n-b" style="width:auto; font-size:10px; padding: 6px 12px;">+ NOVO EDIFÍCIO</button>
-        </div>
-        <div class="search-box">
-          <span class="material-symbols-rounded">search</span>
-          <input type="text" id="bairro-search" placeholder="Buscar edifício ou zona..." value="${searchTerm}">
-        </div>
-      </div>`;
-
-    const bsInp = document.getElementById('bairro-search');
-    if (bsInp) bsInp.oninput = (e) => renderBairros(e.target.value);
+    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 22px; margin:0;">CADASTRAR</h2><button class="btn-primary" id="b-n-b" style="width:auto; font-size:10px; padding: 6px 12px;">+ NOVO EDIFÍCIO</button></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar edifício..." value="${searchTerm}"></div></div>`;
+    const bsInp = document.getElementById('bairro-search'); if (bsInp) { bsInp.oninput = (e) => renderBairros(e.target.value); bsInp.focus(); }
     const bnb = document.getElementById('b-n-b'); if (bnb) bnb.onclick = () => renderBairroForm();
-
     const bairros = await db.bairros.toArray();
-    const today = new Date();
     let html = '<div class="dashboard-grid animate-in" style="margin-top:10px;">';
-    const lowerSearch = searchTerm.toLowerCase();
+    const lS = searchTerm.toLowerCase();
     for (const b of bairros) {
-      if (searchTerm && !b.nome.toLowerCase().includes(lowerSearch)) continue;
-      const clients = await db.clientes.where('bairroId').equals(b.id).toArray();
-      const cids = clients.map(c => c.id);
-      const eqsInB = await db.equipamentos.where('clienteId').anyOf(cids).toArray();
-      const totalAtrasados = eqsInB.filter(e => new Date(e.proximaManutencao) <= today).length;
-      html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; background: rgba(255,255,255,0.02); padding: 18px;"><h3 style="margin:0; font-size:14px; text-transform:uppercase;">${b.nome}</h3><p style="font-size:11px; font-weight:700; opacity:0.6; margin-top:10px;">${totalAtrasados} PENDENTES</p></div>`;
+      if (searchTerm && !b.nome.toLowerCase().includes(lS)) continue;
+      const cls = await db.clientes.where('bairroId').equals(b.id).toArray();
+      html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')" style="border-left: 4px solid ${b.cor || 'var(--primary)'}; background: rgba(255,255,255,0.02); padding: 18px;"><h3 style="margin:0; font-size:14px; text-transform:uppercase;">${b.nome}</h3><p style="font-size:11px; font-weight:700; opacity:0.6; margin-top:10px;">${cls.length} UNIDADES</p></div>`;
     }
     mainContent.innerHTML = html + '</div>';
   } catch (err) { console.error(err); }
@@ -173,41 +150,47 @@ async function renderMais() {
   const an = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
   const curAv = localStorage.getItem('jampa_tech_avatar') || 'Felix';
   headerContent.innerHTML = '<h2>AJUSTES</h2><p>Sistema</p>';
-  mainContent.innerHTML = `<div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;"><div class="card"><label style="font-size:11px; font-weight:800; color:var(--primary); margin-bottom:15px; display:block;">Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${curAv === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; border: 2px solid ${curAv === s ? 'var(--primary)' : 'transparent'};"><img src="${getAvatarUrl(s)}" style="width: 100%;" /></div>`).join('')}</div></div><div class="card"><div class="form-group"><label>Nome</label><input type="text" id="p-t" class="form-control" value="${tech}"></div><div class="form-group" style="margin-top:10px;"><label>App</label><input type="text" id="p-a" class="form-control" value="${an}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR</button></div><div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:12px;">BACKUP</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">BAIXAR</button><button onclick="window.importData()" class="btn-primary" style="background:#1e293b; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTORE</button></div></div><div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;"><p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.3 Titanium Pro</p><a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">SUPORTE</a></div></div>`;
+  mainContent.innerHTML = `<div class="animate-in" style="display: flex; flex-direction: column; gap: 20px;"><div class="card"><label style="font-size:11px; font-weight:800; color:var(--primary); margin-bottom:15px; display:block;">Avatar</label><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">${avatarSeeds.map(s => `<div class="avatar-option ${curAv === s ? 'active' : ''}" data-seed="${s}" style="cursor: pointer; border-radius: 12px; border: 2px solid ${curAv === s ? 'var(--primary)' : 'transparent'};"><img src="${getAvatarUrl(s)}" style="width: 100%;" /></div>`).join('')}</div></div><div class="card"><div class="form-group"><label>Nome</label><input type="text" id="p-t" class="form-control" value="${tech}"></div><div class="form-group" style="margin-top:10px;"><label>App</label><input type="text" id="p-a" class="form-control" value="${an}"></div><button class="btn-primary" id="b-s" style="margin-top:20px; width:100%;">SALVAR</button></div><div class="card" style="background: rgba(34, 197, 94, 0.05); border: 1px solid #22c55e;"><h3 style="font-size:14px; color:#22c55e; margin-bottom:12px;">BACKUP</h3><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"><button onclick="window.exportData()" class="btn-primary" style="background:#22c55e; color:black; font-size:11px;">BAIXAR</button><button onclick="window.importData()" class="btn-primary" style="background:#1e293b; color:#22c55e; font-size:11px; border: 1px solid #22c55e;">RESTORE</button></div></div><div class="card" style="border-left: 4px solid var(--secondary); background: rgba(112, 0, 255, 0.02); padding: 25px;"><p style="font-size: 12px; margin:0;"><b>Versão:</b> 3.0.4 Titanium Ultra</p><a href="https://wa.me/5583996612425" target="_blank" class="btn-primary" style="background: #25D366; margin-top:15px;">SUPORTE</a></div></div>`;
   document.querySelectorAll('.avatar-option').forEach(opt => { opt.onclick = () => { localStorage.setItem('jampa_tech_avatar', opt.dataset.seed); renderMais(); }; });
   document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
 }
 
-window.exportData = async () => {
-  const data = { bairros: await db.bairros.toArray(), clientes: await db.clientes.toArray(), equipamentos: await db.equipamentos.toArray(), manutencoes: await db.manutencoes.toArray() };
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `backup_jampa.json`; a.click();
-  localStorage.setItem('last_jampa_backup', Date.now().toString()); renderDashboard();
-};
-
-window.importData = () => {
-  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (confirm('Restaurar dados?')) {
-          await db.delete(); await db.open();
-          if (data.bairros) await db.bairros.bulkAdd(data.bairros);
-          if (data.clientes) await db.clientes.bulkAdd(data.clientes);
-          if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos);
-          if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes);
-          location.reload();
-        }
-      } catch (err) { alert('Erro'); }
+async function renderMaintenanceForm(eqId = null, defaultType = '') {
+  try {
+    const eqs = await db.equipamentos.toArray();
+    const cls = await db.clientes.toArray();
+    const brs = await db.bairros.toArray();
+    openModal(defaultType || 'Registrar Serviço');
+    let tab = eqId ? 'existente' : 'avulso';
+    const r = () => {
+      modalBody.innerHTML = `<div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'existente' ? 'black' : 'white'};">SALVO</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : '#1e293b'}; color: ${tab === 'avulso' ? 'black' : 'white'};">NOVO</button></div><form id="f-m">${tab === 'existente' ? `<div class="form-group"><label>Aparelho</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome || 'S/N'} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;"><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div></div>`}<div class="form-group"><label>Descrição</label><textarea id="m-d" class="form-control" rows="2" required>${defaultType ? defaultType + ': ' : ''}</textarea></div><div class="form-group"><label>Próxima Visita</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">FINALIZAR</button></form>`;
+      const tex = document.getElementById('t-ex'); if (tex) tex.onclick = () => { tab = 'existente'; r(); };
+      const tav = document.getElementById('t-av'); if (tav) tav.onclick = () => { tab = 'avulso'; r(); };
+      document.getElementById('f-m').onsubmit = async (ev) => {
+        ev.preventDefault();
+        let fId = eqId;
+        if (tab === 'avulso') {
+          const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' });
+          fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() });
+        } else { fId = Number(document.getElementById('m-eq').value); }
+        const nxD = new Date(document.getElementById('m-nx').value);
+        await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
+        await db.equipamentos.update(fId, { ultimaManutencao: new Date(), proximaManutencao: nxD });
+        closeModal(); renderDashboard();
+      };
     };
-    reader.readAsText(file);
-  };
-  input.click();
-};
+    r();
+  } catch (err) { console.error(err); }
+}
+
+async function renderBairroForm() {
+  openModal('Novo Edifício');
+  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><div class="form-group"><label>Cor</label><input type="color" id="b-c" class="form-control" value="#00f2ff"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">CADASTRAR</button></form>';
+  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value }); closeModal(); renderBairros(); };
+}
+
+window.renderPropertyForm = (bId) => { openModal('Novo Apto'); modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Dono</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>Apto</label><input type="text" id="p-e" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:20px; width:100%;">CADASTRAR</button></form>`; document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); }; };
+window.renderEquipmentForm = (id, cId) => { openModal(id ? 'Editar' : 'Novo Ar'); modalBody.innerHTML = `<form id="f-e"><div class="form-group"><label>Marca</label><select id="e-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div><div class="form-group" style="margin-top:10px;"><label>BTU</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}">${b}</option>`).join('')}</select></div><div class="form-group" style="margin-top:10px;"><label>Local</label><input type="text" id="e-l" class="form-control" placeholder="Ex: Sala"></div><button type="submit" class="btn-primary" style="margin-top:20px; width:100%;">SALVAR</button></form>`; document.getElementById('f-e').onsubmit = async (e) => { e.preventDefault(); const d = { marca: document.getElementById('e-m').value, btu: Number(document.getElementById('e-b').value), localizacao: document.getElementById('e-l').value, clienteId: Number(cId), proximaManutencao: new Date() }; if (id) await db.equipamentos.update(Number(id), d); else await db.equipamentos.add(d); closeModal(); renderBairroDetail(cId, 'bairros'); }; };
 
 async function init() {
   try {
@@ -220,7 +203,4 @@ async function init() {
   } catch (err) { console.error(err); if (document.getElementById('splash-screen')) document.getElementById('splash-screen').style.display = 'none'; }
 }
 
-window.renderBairros = renderBairros; window.renderDashboard = renderDashboard; window.renderHistorico = renderHistorico; window.renderMais = renderMais; window.renderBairroDetail = renderBairroDetail; window.renderEquipmentForm = (id, cId) => { openModal(id ? 'Editar' : 'Novo Ar'); modalBody.innerHTML = `<form id="f-e"><div class="form-group"><label>Marca</label><select id="e-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div><div class="form-group" style="margin-top:10px;"><label>BTU</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}">${b}</option>`).join('')}</select></div><div class="form-group" style="margin-top:10px;"><label>Local</label><input type="text" id="e-l" class="form-control" placeholder="Ex: Sala"></div><button type="submit" class="btn-primary" style="margin-top:20px; width:100%;">SALVAR</button></form>`; document.getElementById('f-e').onsubmit = async (e) => { e.preventDefault(); const d = { marca: document.getElementById('e-m').value, btu: Number(document.getElementById('e-b').value), localizacao: document.getElementById('e-l').value, clienteId: Number(cId), proximaManutencao: new Date() }; if (id) await db.equipamentos.update(Number(id), d); else await db.equipamentos.add(d); closeModal(); renderBairroDetail(cId, 'bairros'); }; };
-window.renderPropertyForm = (bId) => { openModal('Novo Apto'); modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Dono</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group" style="margin-top:10px;"><label>Apto</label><input type="text" id="p-e" class="form-control" required></div><button type="submit" class="btn-primary" style="margin-top:20px; width:100%;">CADASTRAR</button></form>`; document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(bId), endereco: document.getElementById('p-e').value, whatsapp: '(83) 9' }); closeModal(); renderBairroDetail(bId, 'bairros'); }; };
-window.renderEquipmentHistory = renderEquipmentHistory;
-init();
+window.renderBairros = renderBairros; window.renderDashboard = renderDashboard; window.renderHistorico = renderHistorico; window.renderMais = renderMais; window.renderBairroDetail = renderBairroDetail; init();
