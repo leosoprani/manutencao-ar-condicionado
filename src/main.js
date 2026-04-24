@@ -47,9 +47,7 @@ async function renderDashboard(sortBy = 'proximas') {
   if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
   const img = document.querySelector('.user-profile img');
   if (img) img.src = getAvatarUrl(av);
-  
   headerContent.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); border: none; color: var(--primary); font-weight: 700;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>GERAL</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>POR BAIRRO</option></select></div>`;
-
   const eqs = await db.equipamentos.toArray();
   const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
   let html = '<div class="dashboard-grid animate-in">';
@@ -57,15 +55,7 @@ async function renderDashboard(sortBy = 'proximas') {
     const c = await db.clientes.get(e.clienteId);
     if (!c) continue;
     const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
-    html += `
-      <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
-          <div onclick="window.renderBairroDetail(${c.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div>
-          <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
-        </div>
-        <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; background:#ff9d00; color:black;">CORRETIVA</button></div>
-      </div>`;
+    html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderBairroDetail(${c.bairroId}, 'home')" style="flex:1;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; background:#ff9d00; color:black;">CORRETIVA</button></div></div>`;
   }
   mainContent.innerHTML = html + '</div>';
   const sSel = document.getElementById('d-s'); if (sSel) sSel.onchange = (e) => renderDashboard(e.target.value);
@@ -106,14 +96,20 @@ async function renderBairroDetail(bId, from = 'home') {
         <div style="display: flex; flex-direction: column; gap: 10px;">
           ${es.map(e => {
             const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
+            const ultima = e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma';
+            const proxima = new Date(e.proximaManutencao).toLocaleDateString();
             return `
             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 12px; padding: 15px;">
-              <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <div style="width:32px; height:32px; background:white; border-radius:6px; padding:6px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
                 <div style="flex:1;"><h4 style="margin:0; font-size:13px;">${e.localizacao}</h4><p style="font-size:9px; opacity:0.5; font-weight:700;">${e.btu} BTU • ${e.potencia || 'S/P'}</p></div>
                 <p style="font-size:9px; font-weight:800; color:${diff <= 2 ? '#ff5e00' : 'var(--primary)'};">${diff <= 0 ? 'VENCIDO' : diff + 'd'}</p>
               </div>
-              <div style="display: flex; gap: 6px; margin-top: 12px;">
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:10px; font-weight:700; margin:0; color:#aaa;">${ultima}</p></div>
+                <div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:10px; font-weight:700; margin:0; color:var(--primary);">${proxima}</p></div>
+              </div>
+              <div style="display: flex; gap: 6px;">
                 <button class="btn-primary q-m" data-id="${e.id}" style="flex:2; padding: 8px; font-size: 10px;">PREVENTIVA</button>
                 <button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:2; padding: 8px; font-size: 10px; background:#ff9d00; color:black;">CORRETIVA</button>
                 <button class="icon-btn" onclick="window.renderEquipmentHistory(${e.id})" style="width:34px; height:34px; color:var(--primary);"><span class="material-symbols-rounded" style="font-size:16px;">history</span></button>
@@ -138,13 +134,7 @@ async function renderEquipmentHistory(eqId) {
   let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 12px; padding: 10px;">';
   for (const m of os) {
     const isCor = m.descricao && m.descricao.includes('Corretiva');
-    html += `
-      <div style="border-left: 2px solid ${isCor ? '#ff9d00' : 'var(--primary)'}; padding-left: 15px; position: relative;">
-        <div style="width: 10px; height: 10px; background: ${isCor ? '#ff9d00' : 'var(--primary)'}; border-radius: 50%; position: absolute; left: -6px; top: 0;"></div>
-        <p style="font-size: 11px; font-weight: 800; color: ${isCor ? '#ff9d00' : 'var(--primary)'}; margin: 0;">${new Date(m.dataRealizada).toLocaleDateString()} ${isCor ? '[EMERGÊNCIA]' : ''}</p>
-        <p style="font-size: 13px; color: white; margin: 5px 0;">${m.descricao}</p>
-        <p style="font-size: 10px; opacity: 0.5;">Próxima: ${new Date(m.proximaData).toLocaleDateString()}</p>
-      </div>`;
+    html += `<div style="border-left: 2px solid ${isCor ? '#ff9d00' : 'var(--primary)'}; padding-left: 15px; position: relative;"><div style="width: 10px; height: 10px; background: ${isCor ? '#ff9d00' : 'var(--primary)'}; border-radius: 50%; position: absolute; left: -6px; top: 0;"></div><p style="font-size: 11px; font-weight: 800; color: ${isCor ? '#ff9d00' : 'var(--primary)'}; margin: 0;">${new Date(m.dataRealizada).toLocaleDateString()} ${isCor ? '[EMERGÊNCIA]' : ''}</p><p style="font-size: 13px; color: white; margin: 5px 0;">${m.descricao}</p><p style="font-size: 10px; opacity: 0.5;">Próxima: ${new Date(m.proximaData).toLocaleDateString()}</p></div>`;
   }
   if (os.length === 0) html += '<div style="text-align:center; padding:30px; opacity:0.3;"><p>Nenhum serviço registrado.</p></div>';
   modalBody.innerHTML = html + '</div>';
@@ -216,42 +206,16 @@ async function renderBairroForm() {
 
 async function init() {
   try {
-    const s = document.getElementById('splash-screen'); const sl = document.getElementById('splash-loader');
-    if (sl) setTimeout(() => sl.style.width = '100%', 100);
-    
-    // Ensure DB is ready
+    const s = document.getElementById('splash-screen');
     if (!db.isOpen()) await db.open();
     if (localStorage.getItem('jampa_reset_v15') !== 'done') {
       await db.delete(); await db.open(); await seedDatabase();
       localStorage.setItem('jampa_reset_v15', 'done');
     }
-
-    setupNavigation();
-    await renderDashboard();
-
-    // Hide splash after everything is ready
-    if (s) {
-      setTimeout(() => {
-        s.style.opacity = '0';
-        setTimeout(() => s.remove(), 800);
-      }, 1000);
-    }
-  } catch (err) {
-    console.error("Init Error:", err);
-    const s = document.getElementById('splash-screen');
-    if (s) s.innerHTML = `<div style="color:white; padding:20px; text-align:center;">Erro ao carregar banco de dados. Tente recarregar.</div>`;
-  }
+    setupNavigation(); await renderDashboard();
+    if (s) { setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 800); }, 1000); }
+  } catch (err) { console.error(err); }
 }
 
-// Global functions for window access
-window.renderBairros = renderBairros;
-window.renderDashboard = renderDashboard;
-window.renderHistorico = renderHistorico;
-window.renderMais = renderMais;
-window.renderBairroDetail = renderBairroDetail;
-window.renderEquipmentForm = renderEquipmentForm;
-window.renderPropertyForm = renderPropertyForm;
-window.renderEquipmentHistory = renderEquipmentHistory;
-window.deleteEquipment = async (id) => { if (confirm('Deseja realmente excluir?')) { const eq = await db.equipamentos.get(id); const c = await db.clientes.get(eq.clienteId); await db.equipamentos.delete(id); renderBairroDetail(c.bairroId, 'bairros'); } };
-
+window.renderBairros = renderBairros; window.renderDashboard = renderDashboard; window.renderHistorico = renderHistorico; window.renderMais = renderMais; window.renderBairroDetail = renderBairroDetail; window.renderEquipmentForm = renderEquipmentForm; window.renderPropertyForm = renderPropertyForm; window.renderEquipmentHistory = renderEquipmentHistory; window.deleteEquipment = async (id) => { if (confirm('Deseja realmente excluir?')) { const eq = await db.equipamentos.get(id); const c = await db.clientes.get(eq.clienteId); await db.equipamentos.delete(id); renderBairroDetail(c.bairroId, 'bairros'); } };
 init();
