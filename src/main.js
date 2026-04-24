@@ -118,8 +118,8 @@ async function renderBairros(searchTerm = '') {
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h2 style="font-size: 22px; margin:0;">CADASTRAR</h2>
           <div style="display: flex; gap: 8px;">
-            <button class="btn-primary" id="b-n-b" style="width:auto; font-size:9px; padding: 8px 12px; background:#1e293b; color:var(--primary); border:1px solid var(--primary);">+ PRÉDIO</button>
-            <button class="btn-primary" id="b-n-u" style="width:auto; font-size:9px; padding: 8px 12px;">+ UNIDADE</button>
+            <button class="btn-primary" id="b-n-b" style="width:auto; font-size:9px; padding: 8px 12px; background:#1e293b; color:var(--primary); border:1px solid var(--primary);">+ NOVO BAIRRO</button>
+            <button class="btn-primary" id="b-n-u" style="width:auto; font-size:9px; padding: 8px 12px;">+ CLIENTE / PROPRIEDADE</button>
           </div>
         </div>
         <div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar..." value="${searchTerm}"></div>
@@ -127,7 +127,7 @@ async function renderBairros(searchTerm = '') {
     
     document.getElementById('b-n-b').onclick = () => renderBairroForm();
     document.getElementById('b-n-u').onclick = () => {
-      openModal('Nova Unidade (Rápido)');
+      openModal('Novo Cliente / Propriedade');
       modalBody.innerHTML = '<p style="font-size:12px; opacity:0.6; margin-bottom:15px;">Escolha o Edifício abaixo:</p><div id="quick-buildings" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>';
       db.bairros.toArray().then(bs => {
         const qb = document.getElementById('quick-buildings');
