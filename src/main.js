@@ -9,7 +9,6 @@ const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 const closeModalBtn = document.getElementById('btn-close-modal');
 const fabAdd = document.getElementById('fab-add');
-
 const avatar = document.querySelector('.user-profile');
 const btnNotif = document.getElementById('btn-notifications');
 
@@ -21,6 +20,10 @@ function closeModal() { modalOverlay.classList.remove('active'); }
 if (closeModalBtn) closeModalBtn.onclick = closeModal;
 if (fabAdd) fabAdd.onclick = () => renderMaintenanceForm();
 if (avatar) avatar.onclick = () => renderMais();
+if (btnNotif) btnNotif.onclick = () => {
+  openModal('Notificações');
+  modalBody.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;"><span class="material-symbols-rounded" style="font-size: 48px;">notifications_off</span><p>Sem notificações novas.</p></div>';
+};
 
 const getLogo = (m) => {
   const name = m.toLowerCase();
@@ -29,7 +32,7 @@ const getLogo = (m) => {
 };
 
 async function requestPersist() {
-  if (navigator.storage \&\& navigator.storage.persist) { await navigator.storage.persist(); }
+  if (navigator.storage && navigator.storage.persist) { await navigator.storage.persist(); }
 }
 
 function setupNavigation() {
@@ -83,16 +86,15 @@ async function renderDashboard(sortBy = 'proximas') {
   const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
   if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
   
-  headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>Agenda Geral</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>Por Bairro</option></select></div></div>`;
+  headerContent.innerHTML = '<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px;">Agenda</h2></div></div>';
 
-  // CHECK BACKUP STATUS
   const lastBackup = localStorage.getItem('jampa_last_backup');
   const now = new Date().getTime();
   const oneDay = 24 * 60 * 60 * 1000;
   let backupAlert = '';
   if (!lastBackup || (now - lastBackup) > oneDay) {
     backupAlert = `
-      <div id="backup-alert" style="background: linear-gradient(90deg, #ff9d00, #ff5e00); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; color: white; cursor: pointer; animation: pulse 2s infinite;">
+      <div id="backup-alert" style="background: linear-gradient(90deg, #ff9d00, #ff5e00); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; color: white; cursor: pointer;">
         <span class="material-symbols-rounded">warning</span>
         <div style="flex: 1;"><p style="margin:0; font-size: 12px; font-weight: 800;">SEGURANÇA RECOMENDADA</p><p style="margin:0; font-size: 10px; opacity: 0.9;">Clique para salvar uma cópia dos seus dados.</p></div>
         <span class="material-symbols-rounded">download</span>
@@ -105,7 +107,7 @@ async function renderDashboard(sortBy = 'proximas') {
   let html = backupAlert + '<div class="dashboard-grid animate-in">';
   
   if (rec.length > 0) {
-    html += `<div style="grid-column: span 2; display: flex; align-items: center; gap: 8px;"><h3 style="font-size: 12px; color: var(--secondary);">SERVIÇOS RECENTES</h3></div>`;
+    html += '<div style="grid-column: span 2; display: flex; align-items: center; gap: 8px;"><h3 style="font-size: 12px; color: var(--secondary);">SERVIÇOS RECENTES</h3></div>';
     for (const m of rec) {
       const e = await db.equipamentos.get(m.equipamentoId);
       const c = e ? await db.clientes.get(e.clienteId) : null;
@@ -113,7 +115,7 @@ async function renderDashboard(sortBy = 'proximas') {
     }
   }
   
-  html += `<div style="grid-column: span 2; margin-top: 15px;"><h3 style="font-size: 12px; color: var(--primary);">AGENDA PRÓXIMA</h3></div>`;
+  html += '<div style="grid-column: span 2; margin-top: 15px;"><h3 style="font-size: 12px; color: var(--primary);">AGENDA PRÓXIMA</h3></div>';
   const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
   for (const e of sorted) {
     const c = await db.clientes.get(e.clienteId);
@@ -129,17 +131,15 @@ async function renderDashboard(sortBy = 'proximas') {
       </div>`;
   }
   mainContent.innerHTML = html + '</div>';
-  const sortSel = document.getElementById('d-s');
-  if (sortSel) sortSel.onchange = (e) => renderDashboard(e.target.value);
   const bAlert = document.getElementById('backup-alert');
   if (bAlert) bAlert.onclick = exportData;
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
 async function renderBairros() {
-  headerContent.innerHTML = `<h2>Cadastrar</h2><p>Bairros e Clientes</p>`;
+  headerContent.innerHTML = '<h2>Cadastrar</h2><p>Bairros e Clientes</p>';
   const bairros = await db.bairros.toArray();
-  let html = `<div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="b-n-b" style="flex: 1;">+ BAIRRO</button><button class="btn-primary" id="b-n-p" style="flex: 1; background: var(--surface-container); color: var(--primary);">+ PROPRIEDADE</button></div><div class="dashboard-grid">`;
+  let html = '<div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="b-n-b" style="flex: 1;">+ BAIRRO</button><button class="btn-primary" id="b-n-p" style="flex: 1; background: var(--surface-container); color: var(--primary);">+ PROPRIEDADE</button></div><div class="dashboard-grid">';
   for (const b of bairros) { html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')"><h3>${b.nome}</h3></div>`; }
   mainContent.innerHTML = html + '</div>';
   const bB = document.getElementById('b-n-b'); if (bB) bB.onclick = () => renderBairroForm();
@@ -148,7 +148,7 @@ async function renderBairros() {
 
 async function renderBairroForm() {
   openModal('Novo Bairro');
-  modalBody.innerHTML = `<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary">SALVAR</button></form>`;
+  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><button type="submit" class="btn-primary">SALVAR</button></form>';
   document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: '#00f2ff' }); closeModal(); renderBairros(); };
 }
 
@@ -202,8 +202,8 @@ async function renderMaintenanceForm(eqId = null) {
       <div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : 'var(--surface-container)'}; color: ${tab === 'existente' ? 'black' : 'white'};">EXISTENTE</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : 'var(--surface-container)'}; color: ${tab === 'avulso' ? 'black' : 'white'};">AVULSO</button></div>
       <form id="f-m">
         ${tab === 'existente' ? `<div class="form-group"><label>Ar</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>`}
-        <div class="form-group"><label>Serviço Realizado</label><textarea id="m-d" class="form-control" rows="2" required></textarea></div>
-        <div class="form-group"><label>Próximo Retorno</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
+        <div class="form-group"><label>O que foi feito?</label><textarea id="m-d" class="form-control" rows="2" required></textarea></div>
+        <div class="form-group"><label>Data Retorno</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
         <button type="submit" class="btn-primary">SALVAR</button>
       </form>
     `;
@@ -226,7 +226,7 @@ async function renderMaintenanceForm(eqId = null) {
 }
 
 async function renderHistorico() {
-  headerContent.innerHTML = `<h2>Histórico</h2><p>Serviços Finalizados</p>`;
+  headerContent.innerHTML = '<h2>Histórico</h2><p>Serviços Finalizados</p>';
   const os = await db.manutencoes.reverse().toArray();
   let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">';
   for (const m of os) {
@@ -240,7 +240,7 @@ async function renderHistorico() {
 async function renderBairroDetail(bId, from = 'home') {
   const b = await db.bairros.get(Number(bId));
   const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'renderBairros()' : 'renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${b.nome}</h2><p>Clientes</p></div></div>`;
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${b.nome}</h2><p>Clientes</p></div></div>`;
   let html = '<div class="animate-in">';
   for (const c of cs) {
     const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
@@ -268,7 +268,7 @@ async function renderBairroDetail(bId, from = 'home') {
 
 function renderMais() {
   const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
-  headerContent.innerHTML = `<h2>Perfil</h2><p>Backup e Configurações</p>`;
+  headerContent.innerHTML = '<h2>Perfil</h2><p>Backup e Configurações</p>';
   mainContent.innerHTML = `
     <div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">
       <div class="card" style="padding: 20px;">
@@ -308,5 +308,17 @@ window.renderDashboard = renderDashboard;
 window.renderHistorico = renderHistorico;
 window.renderMais = renderMais;
 
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => { reg.onupdatefound = () => { const newSW = reg.installing; newSW.onstatechange = () => { if (newSW.state === 'installed' \&\& navigator.serviceWorker.controller) { if (confirm('Nova atualização disponível! Deseja instalar agora?')) { window.location.reload(); } } }; }; }).catch(() => {}));
-try { init(); } catch (e) { console.error(e); document.getElementById('splash-screen').remove(); }
+if ('serviceWorker' in navigator) { 
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.onupdatefound = () => {
+      const newSW = reg.installing;
+      newSW.onstatechange = () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          if (confirm('Nova atualização disponível! Deseja instalar agora?')) { window.location.reload(); }
+        }
+      };
+    };
+  }).catch(() => {});
+}
+
+try { init(); } catch (e) { console.error(e); }
