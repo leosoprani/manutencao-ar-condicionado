@@ -85,9 +85,7 @@ async function importData(file) {
 async function performSearch(q) {
   const query = q.toLowerCase();
   const cs = await db.clientes.toArray();
-  const es = await db.equipamentos.toArray();
   const filteredC = cs.filter(c => c.nome.toLowerCase().includes(query) || (c.endereco && c.endereco.toLowerCase().includes(query)));
-  
   let html = '<div class="dashboard-grid animate-in">';
   filteredC.forEach(c => {
     html += `<div class="card" style="grid-column: span 2;" onclick="window.renderBairroDetail(${c.bairroId}, 'home')"><h3>${c.nome}</h3><p style="font-size: 11px; opacity:0.6;">${c.endereco || ''}</p></div>`;
@@ -229,7 +227,7 @@ async function renderEquipmentForm(id = null, preCId = null) {
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
            <div class="form-group"><label>Capacidade</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
-           <div class="form-group"><label>Apartamento/Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
+           <div class="form-group"><label>Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
         </div>
         <div class="form-group"><label>Modelo / Referência</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}"></div>
         <div class="form-group"><label>Local de Instalação</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}"></div>
@@ -334,19 +332,6 @@ function renderMais() {
         <button class="btn-primary" id="b-s">SALVAR CONFIGURAÇÕES</button>
       </div>
       
-      <div class="card" style="padding: 20px; border-left: 4px solid var(--secondary);">
-        <h3 style="font-size: 14px; margin-bottom: 10px; color:var(--secondary);">SOBRE O APP</h3>
-        <p style="font-size: 12px; margin: 5px 0;"><b>Desenvolvido por:</b> Leonardo Soprani</p>
-        <p style="font-size: 12px; margin: 5px 0;"><b>Versão:</b> 2.5.0 (Premium)</p>
-        <p style="font-size: 12px; margin: 5px 0;"><b>Data de Criação:</b> Abril de 2024</p>
-        <div style="margin-top: 15px; border-top: 1px solid var(--glass-border); padding-top: 10px;">
-          <label style="font-size:10px; color:var(--text-secondary);">CONTATO DE SUPORTE</label>
-          <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background:#25D366; margin-top:10px;">
-            <span class="material-symbols-rounded">chat</span> FALAR COM SUPORTE
-          </a>
-        </div>
-      </div>
-
       <div class="card" style="padding: 20px; background: rgba(0,242,255,0.05);">
         <h3 style="font-size: 14px; margin-bottom: 10px; color:var(--primary);">SEGURANÇA (BACKUP)</h3>
         <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Mantenha uma cópia externa dos seus dados.</p>
@@ -357,6 +342,20 @@ function renderMais() {
           </label>
         </div>
       </div>
+      
+      <div class="card" style="padding: 20px; border-left: 4px solid var(--secondary);">
+        <h3 style="font-size: 14px; margin-bottom: 10px; color:var(--secondary);">SOBRE O APP</h3>
+        <p style="font-size: 12px; margin: 5px 0;"><b>Desenvolvido por:</b> Leonardo Soprani</p>
+        <p style="font-size: 12px; margin: 5px 0;"><b>Versão:</b> 2.5.0 (Premium)</p>
+        <p style="font-size: 12px; margin: 5px 0;"><b>Data de Criação:</b> Abril de 2026</p>
+        <div style="margin-top: 15px; border-top: 1px solid var(--glass-border); padding-top: 10px;">
+          <label style="font-size:10px; color:var(--text-secondary);">CONTATO DE SUPORTE</label>
+          <a href="https://wa.me/5583987014444" target="_blank" class="btn-primary" style="background:#25D366; margin-top:10px;">
+            <span class="material-symbols-rounded">chat</span> FALAR COM SUPORTE
+          </a>
+        </div>
+      </div>
+
       <button class="btn-primary" style="background: var(--accent);" id="b-r">APAGAR TUDO (RESET)</button>
     </div>
   `;
