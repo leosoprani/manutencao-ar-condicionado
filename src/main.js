@@ -29,10 +29,7 @@ const getLogo = (m) => {
 };
 
 async function requestPersist() {
-  if (navigator.storage \&\& navigator.storage.persist) {
-    const isPersisted = await navigator.storage.persist();
-    console.log(`Storage persisted: ${isPersisted}`);
-  }
+  if (navigator.storage \&\& navigator.storage.persist) { await navigator.storage.persist(); }
 }
 
 function setupNavigation() {
@@ -49,33 +46,6 @@ function setupNavigation() {
   });
 }
 
-async function renderDashboard(sortBy = 'proximas') {
-  const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
-  const app = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
-  if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
-  headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>Agenda Geral</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>Por Bairro</option></select></div><div class="search-bar-global" style="position: relative;"><span class="material-symbols-rounded" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 18px;">search</span><input type="text" id="g-s" placeholder="Pesquisar..." style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 15px 12px 40px; color: white; border: none; outline: none;"></div></div>`;
-  const eqs = await db.equipamentos.toArray();
-  const rec = await db.manutencoes.reverse().limit(3).toArray();
-  let html = '<div class="dashboard-grid animate-in">';
-  if (rec.length > 0) {
-    html += `<div style="grid-column: span 2; margin-top: 10px; display: flex; align-items: center; gap: 8px;"><h3 style="font-size: 12px; color: var(--secondary);">SERVIÇOS RECENTES</h3></div>`;
-    for (const m of rec) {
-      const e = await db.equipamentos.get(m.equipamentoId);
-      const c = e ? await db.clientes.get(e.clienteId) : null;
-      html += `<div class="card" style="grid-column: span 2; padding: 10px; display: flex; align-items: center; gap: 10px;"><img src="${getLogo(e?.marca)}" style="width: 24px;" /><div><h4 style="font-size: 12px; margin: 0;">${c?.nome}</h4><p style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString()}</p></div></div>`;
-    }
-  }
-  html += `<div style="grid-column: span 2; margin-top: 20px;"><h3 style="font-size: 12px; color: var(--primary);">PRÓXIMAS MANUTENÇÕES</h3></div>`;
-  const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
-  for (const e of sorted) {
-    const c = await db.clientes.get(e.clienteId);
-    const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / (86400000));
-    html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 10px;"><div style="display: flex; align-items: center; gap: 12px;"><img src="${getLogo(e.marca)}" style="width: 32px;" /><div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')"><h3 style="font-size: 14px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.7;">${e.marca} - ${e.localizacao} (${e.unidade || ''})</p></div><span style="margin-left: auto; font-size: 10px; background: rgba(0,242,255,0.1); padding: 4px 8px; border-radius: 4px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="padding: 6px; font-size: 11px;">REGISTRAR MANUTENÇÃO</button><a href="https://wa.me/${c?.whatsapp.replace(/\D/g,'')}" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a></div></div>`;
-  }
-  mainContent.innerHTML = html + '</div>';
-  document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
-}
-
 async function exportData() {
   const bairros = await db.bairros.toArray();
   const clientes = await db.clientes.toArray();
@@ -88,6 +58,8 @@ async function exportData() {
   a.href = url;
   a.download = `backup_arjampa_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
+  localStorage.setItem('jampa_last_backup', new Date().getTime());
+  renderDashboard();
 }
 
 async function importData(file) {
@@ -100,50 +72,78 @@ async function importData(file) {
       if (data.clientes) await db.clientes.bulkAdd(data.clientes);
       if (data.equipamentos) await db.equipamentos.bulkAdd(data.equipamentos);
       if (data.manutencoes) await db.manutencoes.bulkAdd(data.manutencoes);
-      alert('Backup Restaurado com Sucesso!');
+      alert('Backup Restaurado!');
       location.reload();
-    } catch (err) { alert('Erro ao importar arquivo!'); }
+    } catch (err) { alert('Arquivo Inválido!'); }
   };
   reader.readAsText(file);
 }
 
-function renderMais() {
-  const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
-  headerContent.innerHTML = `<h2>Perfil</h2><p>Backup e Configurações</p>`;
-  mainContent.innerHTML = `
-    <div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">
-      <div class="card" style="padding: 20px;">
-        <div class="form-group"><label>Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div>
-        <button class="btn-primary" id="b-s">SALVAR NOME</button>
+async function renderDashboard(sortBy = 'proximas') {
+  const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
+  if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
+  
+  headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>Agenda Geral</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>Por Bairro</option></select></div></div>`;
+
+  // CHECK BACKUP STATUS
+  const lastBackup = localStorage.getItem('jampa_last_backup');
+  const now = new Date().getTime();
+  const oneDay = 24 * 60 * 60 * 1000;
+  let backupAlert = '';
+  if (!lastBackup || (now - lastBackup) > oneDay) {
+    backupAlert = `
+      <div id="backup-alert" style="background: linear-gradient(90deg, #ff9d00, #ff5e00); padding: 12px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; color: white; cursor: pointer; animation: pulse 2s infinite;">
+        <span class="material-symbols-rounded">warning</span>
+        <div style="flex: 1;"><p style="margin:0; font-size: 12px; font-weight: 800;">SEGURANÇA RECOMENDADA</p><p style="margin:0; font-size: 10px; opacity: 0.9;">Clique para salvar uma cópia dos seus dados.</p></div>
+        <span class="material-symbols-rounded">download</span>
       </div>
-      <div class="card" style="padding: 20px; background: rgba(0,242,255,0.05);">
-        <h3 style="font-size: 14px; margin-bottom: 10px;">SEGURANÇA (BACKUP)</h3>
-        <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Baixe seus dados para não perder nada se limpar o histórico.</p>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn-primary" id="b-exp" style="flex: 1;">EXPORTAR BACKUP</button>
-          <label class="btn-primary" style="flex: 1; text-align: center; background: var(--surface-container); color: var(--primary); cursor: pointer;">
-            IMPORTAR <input type="file" id="b-imp" style="display: none;" accept=".json">
-          </label>
+    `;
+  }
+
+  const eqs = await db.equipamentos.toArray();
+  const rec = await db.manutencoes.reverse().limit(3).toArray();
+  let html = backupAlert + '<div class="dashboard-grid animate-in">';
+  
+  if (rec.length > 0) {
+    html += `<div style="grid-column: span 2; display: flex; align-items: center; gap: 8px;"><h3 style="font-size: 12px; color: var(--secondary);">SERVIÇOS RECENTES</h3></div>`;
+    for (const m of rec) {
+      const e = await db.equipamentos.get(m.equipamentoId);
+      const c = e ? await db.clientes.get(e.clienteId) : null;
+      html += `<div class="card" style="grid-column: span 2; padding: 10px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02);"><img src="${getLogo(e?.marca)}" style="width: 24px;" /><div><h4 style="font-size: 12px; margin: 0;">${c?.nome}</h4><p style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString()}</p></div></div>`;
+    }
+  }
+  
+  html += `<div style="grid-column: span 2; margin-top: 15px;"><h3 style="font-size: 12px; color: var(--primary);">AGENDA PRÓXIMA</h3></div>`;
+  const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
+  for (const e of sorted) {
+    const c = await db.clientes.get(e.clienteId);
+    const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / (86400000));
+    html += `
+      <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 10px; border: 1px solid ${diff <= 2 ? 'rgba(255,0,0,0.2)' : 'rgba(255,255,255,0.05)'};">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <img src="${getLogo(e.marca)}" style="width: 32px;" />
+          <div onclick="window.renderBairroDetail(${c?.bairroId}, 'home')"><h3 style="font-size: 14px; margin: 0;">${c?.nome}</h3><p style="font-size: 10px; opacity: 0.7;">${e.marca} - ${e.localizacao}</p></div>
+          <span style="margin-left: auto; font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
         </div>
-      </div>
-      <button class="btn-primary" style="background: var(--accent);" id="b-r">APAGAR TUDO</button>
-    </div>
-  `;
-  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); location.reload(); };
-  document.getElementById('b-exp').onclick = exportData;
-  document.getElementById('b-imp').onchange = (e) => importData(e.target.files[0]);
-  document.getElementById('b-r').onclick = async () => { if(confirm('Apagar tudo?')) { await db.delete(); localStorage.clear(); location.reload(); } };
+        <div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="padding: 8px; font-size: 11px;">REGISTRAR MANUTENÇÃO</button><a href="https://wa.me/${c?.whatsapp.replace(/\D/g,'')}" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a></div>
+      </div>`;
+  }
+  mainContent.innerHTML = html + '</div>';
+  const sortSel = document.getElementById('d-s');
+  if (sortSel) sortSel.onchange = (e) => renderDashboard(e.target.value);
+  const bAlert = document.getElementById('backup-alert');
+  if (bAlert) bAlert.onclick = exportData;
+  document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
-// ... other render functions (Bairros, OS, forms) remain with their event logic ...
 async function renderBairros() {
-  headerContent.innerHTML = `<h2>Cadastrar</h2><p>Regiões e Clientes</p>`;
+  headerContent.innerHTML = `<h2>Cadastrar</h2><p>Bairros e Clientes</p>`;
   const bairros = await db.bairros.toArray();
-  let html = `<div style="display: flex; gap: 10px; margin-bottom: 15px;"><button class="btn-primary" id="b-n-b">+ BAIRRO</button><button class="btn-primary" id="b-n-p">+ CLIENTE</button></div><div class="dashboard-grid">`;
+  let html = `<div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="b-n-b" style="flex: 1;">+ BAIRRO</button><button class="btn-primary" id="b-n-p" style="flex: 1; background: var(--surface-container); color: var(--primary);">+ PROPRIEDADE</button></div><div class="dashboard-grid">`;
   for (const b of bairros) { html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')"><h3>${b.nome}</h3></div>`; }
   mainContent.innerHTML = html + '</div>';
-  document.getElementById('b-n-b').onclick = () => renderBairroForm();
-  document.getElementById('b-n-p').onclick = () => renderPropertyForm();
+  const bB = document.getElementById('b-n-b'); if (bB) bB.onclick = () => renderBairroForm();
+  const bP = document.getElementById('b-n-p'); if (bP) bP.onclick = () => renderPropertyForm();
 }
 
 async function renderBairroForm() {
@@ -154,36 +154,36 @@ async function renderBairroForm() {
 
 async function renderPropertyForm() {
   const brs = await db.bairros.toArray();
-  openModal('Novo Cliente');
-  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Nome</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9"></div><button type="submit" class="btn-primary">SALVAR</button></form>`;
-  document.getElementById('f-p').onsubmit = async (e) => { e.preventDefault(); await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: 'Endereço', whatsapp: document.getElementById('p-w').value, tipo: 'Residência', telefone: '(83) 9' }); closeModal(); renderBairros(); };
+  openModal('Nova Propriedade');
+  modalBody.innerHTML = `<form id="f-p"><div class="form-group"><label>Nome / Edifício</label><input type="text" id="p-n" class="form-control" required></div><div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9"></div><button type="submit" class="btn-primary">SALVAR</button></form>`;
+  document.getElementById('f-p').onsubmit = async (e) => {
+    e.preventDefault();
+    await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: 'Avulso', whatsapp: document.getElementById('p-w').value, tipo: 'Residência', telefone: '(83) 9' });
+    closeModal(); renderBairros();
+  };
 }
 
 async function renderEquipmentForm(id = null, preCId = null) {
   const eq = id ? await db.equipamentos.get(id) : null;
   openModal(id ? 'Editar Ar' : 'Novo Ar');
-  let selectedBrand = eq?.marca || 'Samsung';
+  let sB = eq?.marca || 'Samsung';
   const r = () => {
     modalBody.innerHTML = `
       <form id="f-e">
         <div class="brand-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
-          ${marcas.map(m => `
-            <div class="brand-item ${selectedBrand === m ? 'active' : ''}" data-brand="${m}" style="padding: 8px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2px solid ${selectedBrand === m ? 'var(--primary)' : 'transparent'};">
-              <img src="${getLogo(m)}" style="width: 100%; height: 30px; object-fit: contain;" />
-              <p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p>
-            </div>
-          `).join('')}
+          ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 8px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 30px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
         </div>
         <div class="form-group"><label>BTUs</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
+        <div class="form-group"><label>Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
         <div class="form-group"><label>Modelo</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}"></div>
         <div class="form-group"><label>Local</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}"></div>
         <button type="submit" class="btn-primary">SALVAR</button>
       </form>
     `;
-    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { selectedBrand = i.dataset.brand; r(); });
+    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
     document.getElementById('f-e').onsubmit = async (e) => {
       e.preventDefault();
-      const data = { marca: selectedBrand, btu: Number(document.getElementById('e-b').value), modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, clienteId: preCId || eq?.clienteId };
+      const data = { marca: sB, btu: Number(document.getElementById('e-b').value), modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: preCId || eq?.clienteId };
       if (id) await db.equipamentos.update(id, data); else await db.equipamentos.add({ ...data, proximaManutencao: new Date() });
       closeModal(); renderDashboard();
     };
@@ -202,8 +202,8 @@ async function renderMaintenanceForm(eqId = null) {
       <div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="t-ex" style="flex: 1; background: ${tab === 'existente' ? 'var(--primary)' : 'var(--surface-container)'}; color: ${tab === 'existente' ? 'black' : 'white'};">EXISTENTE</button><button class="btn-primary" id="t-av" style="flex: 1; background: ${tab === 'avulso' ? 'var(--primary)' : 'var(--surface-container)'}; color: ${tab === 'avulso' ? 'black' : 'white'};">AVULSO</button></div>
       <form id="f-m">
         ${tab === 'existente' ? `<div class="form-group"><label>Ar</label><select id="m-eq" class="form-control">${eqs.map(e => `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${cls.find(c => c.id === e.clienteId)?.nome} - ${e.marca}</option>`).join('')}</select></div>` : `<div class="form-group"><label>Cliente</label><input type="text" id="av-n" class="form-control" required></div><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>`}
-        <div class="form-group"><label>O que foi feito?</label><textarea id="m-d" class="form-control" rows="2" required></textarea></div>
-        <div class="form-group"><label>Data Retorno</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
+        <div class="form-group"><label>Serviço Realizado</label><textarea id="m-d" class="form-control" rows="2" required></textarea></div>
+        <div class="form-group"><label>Próximo Retorno</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 15552000000).toISOString().split('T')[0]}"></div>
         <button type="submit" class="btn-primary">SALVAR</button>
       </form>
     `;
@@ -211,14 +211,14 @@ async function renderMaintenanceForm(eqId = null) {
     document.getElementById('t-av').onclick = () => { tab = 'avulso'; r(); };
     document.getElementById('f-m').onsubmit = async (e) => {
       e.preventDefault();
-      let fid = eqId;
+      let fId = eqId;
       if (tab === 'avulso') {
-        const cid = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' });
-        fid = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, clienteId: cid, proximaManutencao: new Date() });
-      } else { fid = Number(document.getElementById('m-eq').value); }
+        const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9' });
+        fId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, clienteId: cId, proximaManutencao: new Date() });
+      } else { fId = Number(document.getElementById('m-eq').value); }
       const nxD = new Date(document.getElementById('m-nx').value);
-      await db.manutencoes.add({ equipamentoId: fid, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
-      await db.equipamentos.update(fid, { ultimaManutencao: new Date(), proximaManutencao: nxD });
+      await db.manutencoes.add({ equipamentoId: fId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
+      await db.equipamentos.update(fId, { ultimaManutencao: new Date(), proximaManutencao: nxD });
       closeModal(); renderDashboard();
     };
   };
@@ -266,6 +266,34 @@ async function renderBairroDetail(bId, from = 'home') {
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
+function renderMais() {
+  const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
+  headerContent.innerHTML = `<h2>Perfil</h2><p>Backup e Configurações</p>`;
+  mainContent.innerHTML = `
+    <div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">
+      <div class="card" style="padding: 20px;">
+        <div class="form-group"><label>Seu Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div>
+        <button class="btn-primary" id="b-s">SALVAR NOME</button>
+      </div>
+      <div class="card" style="padding: 20px; background: rgba(0,242,255,0.05);">
+        <h3 style="font-size: 14px; margin-bottom: 10px;">SEGURANÇA (BACKUP)</h3>
+        <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Baixe seus dados regularmente para não perder nada.</p>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-primary" id="b-exp" style="flex: 1;">EXPORTAR BACKUP</button>
+          <label class="btn-primary" style="flex: 1; text-align: center; background: var(--surface-container); color: var(--primary); cursor: pointer;">
+            RESTAURAR <input type="file" id="b-imp" style="display: none;" accept=".json">
+          </label>
+        </div>
+      </div>
+      <button class="btn-primary" style="background: var(--accent);" id="b-r">APAGAR TUDO</button>
+    </div>
+  `;
+  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); location.reload(); };
+  document.getElementById('b-exp').onclick = exportData;
+  document.getElementById('b-imp').onchange = (e) => importData(e.target.files[0]);
+  document.getElementById('b-r').onclick = async () => { if(confirm('Apagar tudo?')) { await db.delete(); localStorage.clear(); location.reload(); } };
+}
+
 async function init() {
   const s = document.getElementById('splash-screen');
   if (s) setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }, 2000);
@@ -280,5 +308,5 @@ window.renderDashboard = renderDashboard;
 window.renderHistorico = renderHistorico;
 window.renderMais = renderMais;
 
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => { reg.onupdatefound = () => { const newSW = reg.installing; newSW.onstatechange = () => { if (newSW.state === 'installed' \&\& navigator.serviceWorker.controller) { if (confirm('Nova atualização disponível! Deseja instalar agora?')) { window.location.reload(); } } }; }; }).catch(() => {}));
 init();
