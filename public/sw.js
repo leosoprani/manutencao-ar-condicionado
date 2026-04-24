@@ -1,11 +1,11 @@
-const CACHE_NAME = 'ar-jampa-v1';
+const CACHE_NAME = 'ar-jampa-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/src/main.js',
-  '/icon.png',
-  '/manifest.json'
+  './',
+  './index.html',
+  './style.css',
+  './src/main.js',
+  './icon.png',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
