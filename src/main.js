@@ -103,7 +103,7 @@ async function renderDashboard(sortBy = 'proximas') {
       for (const m of recentes) {
         const eq = await db.equipamentos.get(m.equipamentoId);
         const cli = eq ? await db.clientes.get(eq.clienteId) : null;
-        html += `<div class="card" style="grid-column: span 2; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); padding: 12px; display: flex; align-items: center; gap: 12px;"><div style="width: 32px; height: 32px; background: white; border-radius: 6px; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.8;"><img src="${getLogo(eq?.marca)}" style="width: 100%; height: 100%; object-fit: contain;" /></div><div style="flex: 1;"><h4 style="font-size: 13px; margin: 0; color: #aaa;">${cli?.nome}</h4><p style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString('pt-BR')} - ${m.descricao.substring(0, 20)}...</p></div><span class="material-symbols-rounded" style="color: var(--secondary); font-size: 18px;">check_circle</span></div>`;
+        html += `<div class="card" style="grid-column: span 2; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); padding: 12px; display: flex; align-items: center; gap: 12px;"><div style="width: 32px; height: 32px; background: white; border-radius: 6px; padding: 4px; display: flex; align-items: center; justify-content: center; "><img src="${getLogo(eq?.marca)}" style="width: 100%; height: 100%; object-fit: contain;" /></div><div style="flex: 1;"><h4 style="font-size: 13px; margin: 0; color: #aaa;">${cli?.nome}</h4><p style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString('pt-BR')} - ${m.descricao.substring(0, 20)}...</p></div><span class="material-symbols-rounded" style="color: var(--secondary); font-size: 18px;">check_circle</span></div>`;
       }
     }
     html += `<div style="grid-column: span 2; margin-top: 25px; display: flex; align-items: center; gap: 8px;"><span class="material-symbols-rounded" style="color: var(--primary); font-size: 20px;">event_upcoming</span><h3 style="font-size: 14px; color: var(--primary); letter-spacing: 1px; font-weight: 800;">AGENDA PRÓXIMA</h3></div>`;
@@ -159,7 +159,7 @@ function renderMais() {
         <button class="btn-primary" style="background: var(--accent); color: white;" id="btn-reset-all">APAGAR TODOS OS DADOS</button>
       </div>
 
-      <div style="margin-top: 20px; text-align: center; opacity: 0.8;">
+      <div style="margin-top: 20px; text-align: center; ">
         <p style="font-size: 14px; color: var(--primary); font-weight: 700; margin: 0;">Desenvolvido por Leonardo S.</p>
         <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">2026 • Versão 1.0.0 Pro</p>
       </div>
@@ -248,7 +248,7 @@ async function renderHistorico() {
     html += `
       <div class="card" style="border-left: 4px solid var(--secondary);">
         <div style="display: flex; justify-content: space-between;"><h4 style="margin: 0; font-size: 15px;">${cli?.nome}</h4><span style="font-size: 10px; opacity: 0.5;">${new Date(m.dataRealizada).toLocaleDateString('pt-BR')}</span></div>
-        <p style="font-size: 11px; opacity: 0.8; margin: 5px 0;">${eq?.marca} - ${eq?.localizacao}</p>
+        <p style="font-size: 11px;  margin: 5px 0;">${eq?.marca} - ${eq?.localizacao}</p>
         <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px;"><p style="font-size: 13px; font-style: italic; margin: 0;">"${m.descricao}"</p></div>
       </div>
     `;
@@ -292,7 +292,7 @@ async function renderEquipmentForm(id = null, preCId = null) {
         <div class="brand-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px;">
           ${marcas.map(m => `
             <div class="brand-item ${selectedBrand === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border: 2px solid ${selectedBrand === m ? 'var(--primary)' : 'transparent'}; border-radius: 12px; text-align: center; cursor: pointer; background: ${selectedBrand === m ? 'rgba(0,242,255,0.1)' : 'rgba(255,255,255,0.02)'};">
-              <img src="${getLogo(m)}" style="width: 28px; height: 28px; object-fit: contain; filter: ${selectedBrand === m ? 'none' : 'grayscale(100%) opacity(0.4)'};" />
+              <img src="${getLogo(m)}" style="width: 28px; height: 28px; object-fit: contain; filter: 'none';" />
             </div>
           `).join('')}
         </div>
