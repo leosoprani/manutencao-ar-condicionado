@@ -47,9 +47,7 @@ async function renderDashboard(sortBy = 'proximas') {
   if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
   const img = document.querySelector('.user-profile img');
   if (img) img.src = getAvatarUrl(av);
-  
   headerContent.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><select id="d-s" class="form-control" style="width: auto; font-size: 11px; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); border: none; color: var(--primary); font-weight: 700;"><option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>GERAL</option><option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>POR BAIRRO</option></select></div>`;
-
   const eqs = await db.equipamentos.toArray();
   const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
   let html = '<div class="dashboard-grid animate-in">';
@@ -59,28 +57,7 @@ async function renderDashboard(sortBy = 'proximas') {
     const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
     const ultima = e.ultimaManutencao ? new Date(e.ultimaManutencao).toLocaleDateString() : 'Nenhuma';
     const proxima = new Date(e.proximaManutencao).toLocaleDateString();
-
-    html += `
-      <div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
-          <div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;">
-            <h3 style="font-size: 15px; margin: 0;">${c.nome}</h3>
-            <p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p>
-          </div>
-          <span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
-          <div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${ultima}</p></div>
-          <div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${proxima}</p></div>
-        </div>
-
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-primary q-m" data-id="${e.id}" style="flex:1; font-size:10px; padding:10px;">PREVENTIVA</button>
-          <button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; font-size:10px; padding:10px; background:#ff9d00; color:black;">CORRETIVA</button>
-        </div>
-      </div>`;
+    html += `<div class="card" style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; align-items: center; gap: 15px;"><div style="width:42px; height:42px; background:white; border-radius:10px; padding:8px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div onclick="window.renderEquipmentHistory(${e.id})" style="flex:1; cursor:pointer;"><h3 style="font-size: 15px; margin: 0;">${c.nome}</h3><p style="font-size: 10px; opacity: 0.6; font-weight:600;">${e.marca} • ${e.localizacao}</p></div><span style="font-size: 10px; font-weight: 800; color: ${diff <= 2 ? '#ff5e00' : 'var(--primary)'}; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px;">${diff <= 0 ? 'HOJE' : diff + 'd'}</span></div><div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);"><div style="text-align:left;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Última</p><p style="font-size:9px; font-weight:700; margin:0;">${ultima}</p></div><div style="text-align:right;"><p style="font-size:7px; opacity:0.5; text-transform:uppercase; margin:0;">Próxima</p><p style="font-size:9px; font-weight:700; margin:0; color:var(--primary);">${proxima}</p></div></div><div style="display: flex; gap: 8px;"><button class="btn-primary q-m" data-id="${e.id}" style="flex:1; font-size:10px; padding:10px;">PREVENTIVA</button><button class="btn-primary q-m-cor" data-id="${e.id}" style="flex:1; font-size:10px; padding:10px; background:#ff9d00; color:black;">CORRETIVA</button></div></div>`;
   }
   mainContent.innerHTML = html + '</div>';
   const sSel = document.getElementById('d-s'); if (sSel) sSel.onchange = (e) => renderDashboard(e.target.value);
@@ -149,6 +126,36 @@ async function renderBairroDetail(bId, from = 'home') {
   mainContent.innerHTML = html + '</div>';
   document.querySelectorAll('.q-m').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Preventiva'));
   document.querySelectorAll('.q-m-cor').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id), 'Manutenção Corretiva / Emergência'));
+}
+
+async function renderHistorico() {
+  headerContent.innerHTML = '<h2 style="font-size:22px;">RELATÓRIOS</h2><p style="font-size:11px; opacity:0.5;">Histórico de Conclusões</p>';
+  const os = await db.manutencoes.reverse().toArray();
+  let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">';
+  for (const m of os) {
+    const e = await db.equipamentos.get(m.equipamentoId);
+    const c = e ? await db.clientes.get(e.clienteId) : null;
+    const b = c ? await db.bairros.get(c.bairroId) : null;
+    const isCor = m.descricao && m.descricao.includes('Corretiva');
+    html += `
+      <div class="card" style="border-left: 5px solid ${isCor ? '#ff9d00' : '#22c55e'};">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 8px; font-weight: 800; padding: 4px 8px; border-radius: 40px; background: ${isCor ? 'rgba(255,157,0,0.1)' : 'rgba(34,197,94,0.1)'}; color: ${isCor ? '#ff9d00' : '#22c55e'}; border: 1px solid ${isCor ? '#ff9d00' : '#22c55e'};">CONCLUÍDO</span>
+          <span style="font-size: 10px; opacity: 0.5; font-weight: 700;">${new Date(m.dataRealizada).toLocaleDateString()}</span>
+        </div>
+        <h4 style="margin:0; font-size:16px;">${c?.nome || 'Cliente Removido'}</h4>
+        <p style="font-size:10px; opacity:0.6; margin: 4px 0 12px; font-weight:700;">${b?.nome} • UNIDADE: ${c?.endereco || '-'}</p>
+        
+        <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <div style="width:30px; height:30px; background:white; border-radius:6px; padding:6px;"><img src="${getLogo(e?.marca || 'Samsung')}" style="width: 100%; height:100%; object-fit:contain;" /></div>
+          <div><p style="font-size:11px; font-weight:800; margin:0;">${e?.marca} - ${e?.localizacao}</p><p style="font-size:9px; opacity:0.5; margin:0;">TIPO: ${isCor ? 'CORRETIVA' : 'PREVENTIVA'}</p></div>
+        </div>
+        
+        <p style="font-size: 13px; font-style: italic; background:rgba(0,0,0,0.2); padding:12px; border-radius:10px; line-height: 1.4; color: #ddd; border: 1px solid rgba(255,255,255,0.05);">${m.descricao}</p>
+      </div>`;
+  }
+  if (os.length === 0) html = '<div style="text-align:center; padding:100px 20px; opacity:0.3;"><span class="material-symbols-rounded" style="font-size:48px;">assignment_late</span><p>Nenhum serviço finalizado ainda.</p></div>';
+  mainContent.innerHTML = html + '</div>';
 }
 
 async function renderEquipmentHistory(eqId) {
