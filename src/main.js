@@ -33,11 +33,10 @@ function closeModal() {
 if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
 if (fabAdd) fabAdd.addEventListener('click', () => renderMaintenanceForm());
 
-// ACTIVATE TOP ICONS
 if (avatar) avatar.onclick = () => renderMais();
 if (btnNotif) btnNotif.onclick = () => {
   openModal('Notificações');
-  modalBody.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;"><span class="material-symbols-rounded" style="font-size: 48px;">notifications_off</span><p>Você não tem notificações novas.</p></div>';
+  modalBody.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;"><span class="material-symbols-rounded" style="font-size: 48px;">notifications_off</span><p>Sem notificações novas.</p></div>';
 };
 
 const getLogo = (m) => {
@@ -60,7 +59,6 @@ function setupNavigation() {
   });
 }
 
-// Categorized Dashboard
 async function renderDashboard(sortBy = 'proximas') {
   const techName = localStorage.getItem('jampa_tech_name') || 'Técnico';
   const appName = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
@@ -71,7 +69,7 @@ async function renderDashboard(sortBy = 'proximas') {
     <div style="display: flex; flex-direction: column; gap: 15px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <h2 style="font-size: 20px;">Visão Geral</h2>
-        <select id="dash-sort" class="form-control" style="width: auto; font-size: 11px; padding: 4px 8px; height: 32px; background: var(--surface-container); border: none;">
+        <select id="dash-sort" class="form-control" style="width: auto; font-size: 11px; padding: 4px 8px; background: var(--surface-container); border: none;">
           <option value="proximas" ${sortBy === 'proximas' ? 'selected' : ''}>Agenda Geral</option>
           <option value="bairro" ${sortBy === 'bairro' ? 'selected' : ''}>Ver por Bairro</option>
         </select>
@@ -125,36 +123,94 @@ async function renderDashboard(sortBy = 'proximas') {
     }
   }
   mainContent.innerHTML = html + '</div>';
-  document.getElementById('dash-sort').addEventListener('change', (e) => renderDashboard(e.target.value));
+  const sortSel = document.getElementById('dash-sort');
+  if (sortSel) sortSel.onchange = (e) => renderDashboard(e.target.value);
+}
+
+async function renderBairros() {
+  headerContent.innerHTML = `<h2>Cadastrar</h2><p>Bairros e Propriedades</p>`;
+  const bairros = await db.bairros.toArray();
+  let html = `
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <button class="btn-primary" id="btn-new-b" style="flex: 1;">+ BAIRRO</button>
+      <button class="btn-primary" id="btn-new-p" style="flex: 1; background: var(--surface-container); color: var(--primary);">+ PROPRIEDADE</button>
+    </div>
+    <div class="dashboard-grid">
+  `;
+  for (const b of bairros) {
+    html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')"><h3>${b.nome}</h3><p style="font-size: 10px; opacity: 0.6;">Gerenciar Região</p></div>`;
+  }
+  mainContent.innerHTML = html + '</div>';
+  
+  // Re-attach listeners every time the view is rendered
+  const bB = document.getElementById('btn-new-b');
+  const bP = document.getElementById('btn-new-p');
+  if (bB) bB.onclick = () => renderBairroForm();
+  if (bP) bP.onclick = () => renderPropertyForm();
+}
+
+async function renderBairroForm() {
+  openModal('Novo Bairro');
+  modalBody.innerHTML = `
+    <form id="f-b">
+      <div class="form-group"><label>Nome do Bairro</label><input type="text" id="b-n" class="form-control" required></div>
+      <div class="form-group"><label>Cor do Bairro</label><input type="color" id="b-c" class="form-control" value="#00f2ff"></div>
+      <button type="submit" class="btn-primary">SALVAR BAIRRO</button>
+    </form>
+  `;
+  document.getElementById('f-b').onsubmit = async (e) => {
+    e.preventDefault();
+    await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value });
+    closeModal(); renderBairros();
+  };
+}
+
+async function renderPropertyForm() {
+  const brs = await db.bairros.toArray();
+  openModal('Nova Propriedade');
+  modalBody.innerHTML = `
+    <form id="f-p">
+      <div class="form-group"><label>Nome do Cliente / Edifício</label><input type="text" id="p-n" class="form-control" required></div>
+      <div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Endereço Completo</label><input type="text" id="p-e" class="form-control" required></div>
+      <div class="form-group"><label>WhatsApp de Contato</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div>
+      <button type="submit" class="btn-primary">SALVAR PROPRIEDADE</button>
+    </form>
+  `;
+  document.getElementById('f-p').onsubmit = async (e) => {
+    e.preventDefault();
+    await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, tipo: 'Residência', telefone: '(83) 9' });
+    closeModal(); renderBairros();
+  };
 }
 
 async function renderEquipmentForm(id = null, preCId = null) {
   const eq = id ? await db.equipamentos.get(id) : null;
-  openModal(id ? 'Editar Equipamento' : 'Novo Equipamento');
+  openModal(id ? 'Editar Aparelho' : 'Novo Aparelho');
   let selectedBrand = eq?.marca || 'Samsung';
   const renderForm = () => {
     modalBody.innerHTML = `
-      <form id="f-e">
-        <label style="font-size: 12px; color: var(--primary); margin-bottom: 15px; display: block; font-weight: 700;">MARCA DO APARELHO</label>
-        <div class="brand-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 25px;">
+      <form id="f-eq">
+        <label style="font-size: 11px; color: var(--primary); font-weight: 800; margin-bottom: 10px; display: block;">MARCA</label>
+        <div class="brand-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
           ${marcas.map(m => `
-            <div class="brand-item ${selectedBrand === m ? 'active' : ''}" data-brand="${m}" style="padding: 8px; border: 2px solid ${selectedBrand === m ? 'var(--primary)' : 'transparent'}; border-radius: 12px; text-align: center; cursor: pointer; background: white; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 5px;">
-              <img src="${getLogo(m)}" style="width: 100%; height: 35px; object-fit: contain;" />
-              <span style="font-size: 9px; color: #333; font-weight: 800; text-transform: uppercase;">${m}</span>
+            <div class="brand-item ${selectedBrand === m ? 'active' : ''}" data-brand="${m}" style="padding: 8px; border: 2px solid ${selectedBrand === m ? 'var(--primary)' : 'transparent'}; border-radius: 12px; text-align: center; cursor: pointer; background: white; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <img src="${getLogo(m)}" style="width: 100%; height: 30px; object-fit: contain;" />
+              <span style="font-size: 8px; color: #333; font-weight: 900; text-transform: uppercase;">${m}</span>
             </div>
           `).join('')}
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-           <div class="form-group"><label>Capacidade (BTUs)</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b.toLocaleString()} BTU</option>`).join('')}</select></div>
-           <div class="form-group"><label>Apartamento / Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+           <div class="form-group"><label>BTUs</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b.toLocaleString()} BTU</option>`).join('')}</select></div>
+           <div class="form-group"><label>Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
         </div>
-        <div class="form-group"><label>Modelo / Referência</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter, WindFree, Dual Inverter"></div>
-        <div class="form-group"><label>Local de Instalação</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Sala, Portaria" list="loc-list"><datalist id="loc-list"><option value="Sala"><option value="Quarto"><option value="Recepção"><option value="Portaria"><option value="Salão de Festas"></datalist></div>
-        <button type="submit" class="btn-primary" style="margin-top: 10px; padding: 15px; font-weight: 800;">SALVAR APARELHO</button>
+        <div class="form-group"><label>Modelo</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter, WindFree"></div>
+        <div class="form-group"><label>Local</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Sala, Quarto"></div>
+        <button type="submit" class="btn-primary">SALVAR APARELHO</button>
       </form>
     `;
-    document.querySelectorAll('.brand-item').forEach(item => { item.addEventListener('click', () => { selectedBrand = item.dataset.brand; renderForm(); }); });
-    document.getElementById('f-e').onsubmit = async (e) => {
+    document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { selectedBrand = i.dataset.brand; renderForm(); });
+    document.getElementById('f-eq').onsubmit = async (e) => {
       e.preventDefault();
       const cId = preCId || eq?.clienteId;
       const data = { marca: selectedBrand, btu: Number(document.getElementById('e-b').value), modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: cId };
@@ -171,46 +227,46 @@ async function renderMaintenanceForm(eqId = null) {
   const brs = await db.bairros.toArray();
   openModal('Registrar Manutenção');
   let tab = eqId ? 'existente' : 'avulso';
-  const renderMaint = () => {
+  const renderM = () => {
     modalBody.innerHTML = `
       <div style="display: flex; gap: 10px; margin-bottom: 20px; background: rgba(255,255,255,0.03); padding: 5px; border-radius: 12px;">
-        <button class="tab-btn ${tab === 'existente' ? 'active' : ''}" id="tab-ex" style="flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; background: ${tab === 'existente' ? 'var(--primary)' : 'transparent'}; color: ${tab === 'existente' ? 'black' : 'white'};">EXISTENTE</button>
-        <button class="tab-btn ${tab === 'avulso' ? 'active' : ''}" id="tab-av" style="flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; background: ${tab === 'avulso' ? 'var(--primary)' : 'transparent'}; color: ${tab === 'avulso' ? 'black' : 'white'};">AVULSO</button>
+        <button class="tab-btn ${tab === 'existente' ? 'active' : ''}" id="t-ex" style="flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; background: ${tab === 'existente' ? 'var(--primary)' : 'transparent'}; color: ${tab === 'existente' ? 'black' : 'white'};">EXISTENTE</button>
+        <button class="tab-btn ${tab === 'avulso' ? 'active' : ''}" id="t-av" style="flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; background: ${tab === 'avulso' ? 'var(--primary)' : 'transparent'}; color: ${tab === 'avulso' ? 'black' : 'white'};">AVULSO</button>
       </div>
       <form id="f-m">
         ${tab === 'existente' ? `
-          <div class="form-group"><label>Aparelho</label><select id="m-eq-id" class="form-control">${eqs.map(e => { const c = cls.find(x => x.id === e.clienteId); return `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${c?.nome} - ${e.marca} (${e.localizacao})</option>`; }).join('')}</select></div>
+          <div class="form-group"><label>Aparelho</label><select id="m-eq" class="form-control">${eqs.map(e => { const c = cls.find(x => x.id === e.clienteId); return `<option value="${e.id}" ${eqId == e.id ? 'selected' : ''}>${c?.nome} - ${e.marca} (${e.localizacao})</option>`; }).join('')}</select></div>
         ` : `
-          <div class="form-group"><label>Nome Cliente</label><input type="text" id="av-nome" class="form-control" required></div>
+          <div class="form-group"><label>Nome Cliente</label><input type="text" id="av-n" class="form-control" required></div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group"><label>Bairro</label><select id="av-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div><div class="form-group"><label>Marca</label><select id="av-m" class="form-control">${marcas.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div></div>
         `}
-        <div class="form-group"><label>O que foi feito?</label><textarea id="m-desc" class="form-control" rows="2" required></textarea></div>
-        <div class="form-group"><label>Próximo Retorno</label><input type="date" id="m-next" class="form-control" required value="${new Date(Date.now() + 180*24*60*60*1000).toISOString().split('T')[0]}"></div>
-        <button type="submit" class="btn-primary" style="margin-top: 10px; padding: 15px; font-weight: 800;">SALVAR SERVIÇO</button>
+        <div class="form-group"><label>Serviço Realizado</label><textarea id="m-d" class="form-control" rows="2" required></textarea></div>
+        <div class="form-group"><label>Próximo Retorno</label><input type="date" id="m-nx" class="form-control" required value="${new Date(Date.now() + 180*24*60*60*1000).toISOString().split('T')[0]}"></div>
+        <button type="submit" class="btn-primary">SALVAR MANUTENÇÃO</button>
       </form>
     `;
-    document.getElementById('tab-ex').onclick = () => { tab = 'existente'; renderMaint(); };
-    document.getElementById('tab-av').onclick = () => { tab = 'avulso'; renderMaint(); };
+    document.getElementById('t-ex').onclick = () => { tab = 'existente'; renderM(); };
+    document.getElementById('t-av').onclick = () => { tab = 'avulso'; renderM(); };
     document.getElementById('f-m').onsubmit = async (e) => {
       e.preventDefault();
-      let finalEqId = eqId;
+      let fEqId = eqId;
       if (tab === 'avulso') {
-        const cId = await db.clientes.add({ nome: document.getElementById('av-nome').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9', tipo: 'Residência', telefone: '(83) 9' });
-        finalEqId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() });
-      } else { finalEqId = Number(document.getElementById('m-eq-id').value); }
-      const nextDate = new Date(document.getElementById('m-next').value);
-      await db.manutencoes.add({ equipamentoId: finalEqId, dataRealizada: new Date(), descricao: document.getElementById('m-desc').value, proximaData: nextDate });
-      await db.equipamentos.update(finalEqId, { ultimaManutencao: new Date(), proximaManutencao: nextDate });
+        const cId = await db.clientes.add({ nome: document.getElementById('av-n').value, bairroId: Number(document.getElementById('av-b').value), endereco: 'Avulso', whatsapp: '(83) 9', tipo: 'Residência', telefone: '(83) 9' });
+        fEqId = await db.equipamentos.add({ marca: document.getElementById('av-m').value, btu: 12000, localizacao: 'Geral', clienteId: cId, proximaManutencao: new Date() });
+      } else { fEqId = Number(document.getElementById('m-eq').value); }
+      const nxD = new Date(document.getElementById('m-nx').value);
+      await db.manutencoes.add({ equipamentoId: fEqId, dataRealizada: new Date(), descricao: document.getElementById('m-d').value, proximaData: nxD });
+      await db.equipamentos.update(fEqId, { ultimaManutencao: new Date(), proximaManutencao: nxD });
       closeModal(); renderDashboard();
     };
   };
-  renderMaint();
+  renderM();
 }
 
 async function renderBairroDetail(bId, from = 'home') {
   const bairro = await db.bairros.get(Number(bId));
   const clientes = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'renderBairros()' : 'renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${bairro.nome}</h2><p>Propriedades registradas</p></div></div>`;
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'renderBairros()' : 'renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${bairro.nome}</h2><p>Propriedades</p></div></div>`;
   let html = '<div class="animate-in">';
   for (const c of clientes) {
     const eqs = await db.equipamentos.where('clienteId').equals(c.id).toArray();
@@ -233,17 +289,7 @@ async function renderBairroDetail(bId, from = 'home') {
       </div>`;
   }
   mainContent.innerHTML = html + '</div>';
-  document.querySelectorAll('.quick-maint').forEach(btn => { btn.addEventListener('click', () => renderMaintenanceForm(Number(btn.dataset.id))); });
-}
-
-async function renderBairros() {
-  headerContent.innerHTML = `<h2>Cadastrar</h2><p>Bairros e Regiões</p>`;
-  const bairros = await db.bairros.toArray();
-  let html = `<div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="btn-primary" id="btn-new-b" style="flex: 1;">+ Bairro</button><button class="btn-primary" id="btn-new-p" style="flex: 1; background: var(--surface-container); color: var(--primary);">+ Propriedade</button></div><div class="dashboard-grid">`;
-  for (const b of bairros) { html += `<div class="card" onclick="window.renderBairroDetail(${b.id}, 'bairros')"><h3>${b.nome}</h3></div>`; }
-  mainContent.innerHTML = html + '</div>';
-  document.getElementById('btn-new-b').onclick = () => renderBairroForm();
-  document.getElementById('btn-new-p').onclick = () => renderPropertyForm();
+  document.querySelectorAll('.quick-maint').forEach(b => b.onclick = () => renderMaintenanceForm(Number(b.dataset.id)));
 }
 
 async function renderHistorico() {
@@ -259,18 +305,25 @@ async function renderHistorico() {
 }
 
 function renderMais() {
-  const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
-  const app = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
+  const t = localStorage.getItem('jampa_tech_name') || 'Técnico';
+  const a = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
   headerContent.innerHTML = `<h2>Mais</h2><p>Perfil e Suporte</p>`;
-  mainContent.innerHTML = `<div class="card" style="padding: 20px;"><div class="form-group"><label>Nome</label><input type="text" id="p-tech" class="form-control" value="${tech}"></div><div class="form-group"><label>App</label><input type="text" id="p-app" class="form-control" value="${app}"></div><button class="btn-primary" id="btn-p-save">Salvar</button><button class="btn-primary" style="background: var(--accent); margin-top: 20px;" id="btn-reset">RESETAR DADOS</button></div>`;
-  document.getElementById('btn-p-save').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-tech').value); localStorage.setItem('jampa_app_name', document.getElementById('p-app').value); location.reload(); };
-  document.getElementById('btn-reset').onclick = async () => { if(confirm('Apagar tudo?')) { await db.delete(); localStorage.clear(); location.reload(); } };
+  mainContent.innerHTML = `
+    <div class="card" style="padding: 20px;">
+      <div class="form-group"><label>Seu Nome</label><input type="text" id="p-t" class="form-control" value="${t}"></div>
+      <div class="form-group"><label>Nome do App</label><input type="text" id="p-a" class="form-control" value="${a}"></div>
+      <button class="btn-primary" id="b-s">SALVAR</button>
+      <button class="btn-primary" style="background: var(--accent); margin-top: 20px;" id="b-r">RESETAR DADOS</button>
+    </div>
+  `;
+  document.getElementById('b-s').onclick = () => { localStorage.setItem('jampa_tech_name', document.getElementById('p-t').value); localStorage.setItem('jampa_app_name', document.getElementById('p-a').value); location.reload(); };
+  document.getElementById('b-r').onclick = async () => { if(confirm('Apagar tudo?')) { await db.delete(); localStorage.clear(); location.reload(); } };
 }
 
 async function init() {
-  const splash = document.getElementById('splash-screen');
-  if (splash) setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 500); }, 2000);
-  if (localStorage.getItem('jampa_reset_v12') !== 'done') { await db.delete(); await db.open(); await seedDatabase(); localStorage.setItem('jampa_reset_v12', 'done'); }
+  const s = document.getElementById('splash-screen');
+  if (s) setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }, 2000);
+  if (localStorage.getItem('jampa_reset_v13') !== 'done') { await db.delete(); await db.open(); await seedDatabase(); localStorage.setItem('jampa_reset_v13', 'done'); }
   setupNavigation(); renderDashboard();
 }
 
@@ -281,5 +334,5 @@ window.renderDashboard = renderDashboard;
 window.renderHistorico = renderHistorico;
 window.renderMais = renderMais;
 
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); }); }
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 init();
