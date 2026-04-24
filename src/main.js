@@ -37,6 +37,12 @@ function setupNavigation() {
   });
 }
 
+// Global Notification Action
+window.showNotifications = () => {
+  openModal('Notificações');
+  modalBody.innerHTML = '<div style="padding:40px 20px; text-align:center; opacity:0.5;"><span class="material-symbols-rounded" style="font-size:48px; margin-bottom:15px;">notifications_off</span><p>Não há novas atualizações no momento.</p></div>';
+};
+
 window.renderMaintenanceForm = async function(eqId, defaultType = '') {
   try {
     const eqs = await db.equipamentos.toArray(); const cls = await db.clientes.toArray();
@@ -79,17 +85,17 @@ async function renderDashboard(searchTerm = '') {
   try {
     const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
     const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
-    const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
     if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
     const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(av);
     
-    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="font-size: 20px; margin:0;">Agenda</h2><span style="font-size:10px; color:var(--primary); font-weight:800; letter-spacing:1px;">${appN}</span></div><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div></div>`;
+    // Clean Home Header (Removed App Name)
+    headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><h2 style="font-size: 24px; margin:0; font-weight:800; letter-spacing:-1px;">Agenda</h2><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div></div>`;
     const sInp = document.getElementById('main-search'); if (sInp) sInp.oninput = (e) => renderDashboard(e.target.value);
 
     let html = '';
     const lastB = localStorage.getItem('last_jampa_backup');
     if (!lastB || (Date.now() - Number(lastB) > 604800000)) {
-      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
+      html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px; margin-left:20px; margin-right:20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
     }
 
     const eqs = await db.equipamentos.toArray();
@@ -131,7 +137,7 @@ async function renderBairroDetail(bId, from = 'home') {
     let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">';
     for (const c of cs) {
       const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
-      html += `<div class="card" style="border-top: 4px solid var(--primary);"><div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;"><div><h3 style="margin: 0; font-size: 18px; color: white;">${c.nome}</h3><p style="font-size:11px; opacity:0.5; font-weight:700; text-transform:uppercase; margin-top:4px;">APTO • ${c.endereco || '-'}</p></div><a href="https://wa.me/${(c.whatsapp||'').replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366; background: rgba(37,211,102,0.1); border:none;"><span class="material-symbols-rounded">chat</span></a></div><div style="display: flex; flex-direction: column; gap: 10px;">${es.map(e => { const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000); return `<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;"><div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;"><div style="width:32px; height:32px; background:white; border-radius:8px; padding:6px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div style="flex:1;"><h4 style="margin:0; font-size:13px;">${e.localizacao}</h4><p style="font-size:9px; opacity:0.5; font-weight:700;">${e.btu} BTU • ${e.potencia || 'S/P'}</p></div><p style="font-size:9px; font-weight:800; color:${diff <= 2 ? '#ff5e00' : 'var(--primary)'};">${diff <= 0 ? 'VENCIDO' : diff + 'd'}</p></div><div style="display: flex; gap: 8px;"><button class="btn-primary" onclick="window.renderMaintenanceForm(${e.id}, 'Manutenção Preventiva')" style="flex:2; padding:10px; font-size:10px;">PREVENTIVA</button><button class="btn-primary" onclick="window.renderMaintenanceForm(${e.id}, 'Manutenção Corretiva / Emergência')" style="flex:2; padding:10px; font-size:10px; background:#ff9d00;">CORRETIVA</button><button class="icon-btn" onclick="window.renderEquipmentHistory(${e.id})" style="width:40px; height:40px; color:var(--primary); background:rgba(255,255,255,0.03);"><span class="material-symbols-rounded" style="font-size:18px;">history</span></button></div></div>`; }).join('')}</div><button class="btn-primary" style="margin-top: 15px; background: rgba(255,255,255,0.05); color: var(--primary); font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ ADICIONAR AR NESTE APTO</button></div>`;
+      html += `<div class="card" style="border-top: 4px solid var(--primary);"><div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;"><div><h3 style="margin: 0; font-size: 18px; color: white;">${c.nome}</h3><p style="font-size:11px; opacity:0.5; font-weight:700; text-transform:uppercase; margin-top:4px;">APTO • ${c.endereco || '-'}</p></div><a href="https://wa.me/${(c.whatsapp||'').replace(/\D/g,'')}" target="_blank" class="icon-btn success"><span class="material-symbols-rounded">chat</span></a></div><div style="display: flex; flex-direction: column; gap: 10px;">${es.map(e => { const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000); return `<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;"><div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;"><div style="width:32px; height:32px; background:white; border-radius:8px; padding:6px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div><div style="flex:1;"><h4 style="margin:0; font-size:13px;">${e.localizacao}</h4><p style="font-size:9px; opacity:0.5; font-weight:700;">${e.btu} BTU • ${e.potencia || 'S/P'}</p></div><p style="font-size:9px; font-weight:800; color:${diff <= 2 ? '#ff5e00' : 'var(--primary)'};">${diff <= 0 ? 'VENCIDO' : diff + 'd'}</p></div><div style="display: flex; gap: 10px;"><button class="btn-primary" onclick="window.renderMaintenanceForm(${e.id}, 'Manutenção Preventiva')" style="flex:2; padding:10px; font-size:10px;">PREVENTIVA</button><button class="btn-primary" onclick="window.renderMaintenanceForm(${e.id}, 'Manutenção Corretiva / Emergência')" style="flex:2; padding:10px; font-size:10px; background:#ff9d00;">CORRETIVA</button><button class="icon-btn primary" onclick="window.renderEquipmentHistory(${e.id})"><span class="material-symbols-rounded" style="font-size:18px;">history</span></button></div></div>`; }).join('')}</div><button class="btn-primary" style="margin-top: 15px; background: rgba(255,255,255,0.05); color: var(--primary); font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ ADICIONAR AR NESTE APTO</button></div>`;
     }
     mainContent.innerHTML = html + '</div>';
   } catch (err) { console.error(err); }
@@ -211,6 +217,7 @@ window.renderEquipmentForm = async function(id, cId) {
 async function init() {
   try {
     const s = document.getElementById('splash-screen');
+    const nBtn = document.querySelector('header .icon-btn'); if (nBtn) nBtn.onclick = window.showNotifications;
     if (navigator.storage && navigator.storage.persist) await navigator.storage.persist();
     if (!db.isOpen()) await db.open();
     if (localStorage.getItem('jampa_reset_v15') !== 'done') { await db.delete(); await db.open(); await seedDatabase(); localStorage.setItem('jampa_reset_v15', 'done'); }
