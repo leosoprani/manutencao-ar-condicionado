@@ -291,8 +291,8 @@ async function renderEquipmentForm(id = null, preCId = null) {
         <label style="font-size: 12px; color: var(--primary); margin-bottom: 12px; display: block; font-weight: 700;">MARCA DO APARELHO</label>
         <div class="brand-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px;">
           ${marcas.map(m => `
-            <div class="brand-item ${selectedBrand === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border: 2px solid ${selectedBrand === m ? 'var(--primary)' : 'transparent'}; border-radius: 12px; text-align: center; cursor: pointer; background: 'white';">
-              <img src="${getLogo(m)}" style="width: 28px; height: 28px; object-fit: contain; filter: 'none'; mix-blend-mode: multiply;;" />
+            <div class="brand-item ${selectedBrand === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border: 2px solid ${selectedBrand === m ? 'var(--primary)' : 'transparent'}; border-radius: 12px; text-align: center; cursor: pointer; background: ${selectedBrand === m ? 'rgba(0,242,255,0.1)' : 'rgba(255,255,255,0.02)'};">
+              <img src="${getLogo(m)}" style="width: 28px; height: 28px; object-fit: contain; filter: 'none';" />
             </div>
           `).join('')}
         </div>
