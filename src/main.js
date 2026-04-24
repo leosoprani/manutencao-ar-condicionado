@@ -148,7 +148,8 @@ async function renderEquipmentForm(id = null, preCId = null) {
            <div class="form-group"><label>Capacidade (BTUs)</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b.toLocaleString()} BTU</option>`).join('')}</select></div>
            <div class="form-group"><label>Apartamento / Unidade</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 402"></div>
         </div>
-        <div class="form-group"><label>Local de Instalação</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Sala, Portaria"></div>
+        <div class="form-group"><label>Modelo / Referência</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter, WindFree, Dual Inverter"></div>
+        <div class="form-group"><label>Local de Instalação</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Sala, Portaria" list="loc-list"><datalist id="loc-list"><option value="Sala"><option value="Quarto"><option value="Recepção"><option value="Portaria"><option value="Salão de Festas"></datalist></div>
         <button type="submit" class="btn-primary" style="margin-top: 10px; padding: 15px; font-weight: 800;">SALVAR APARELHO</button>
       </form>
     `;
@@ -156,7 +157,7 @@ async function renderEquipmentForm(id = null, preCId = null) {
     document.getElementById('f-e').onsubmit = async (e) => {
       e.preventDefault();
       const cId = preCId || eq?.clienteId;
-      const data = { marca: selectedBrand, btu: Number(document.getElementById('e-b').value), localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: cId };
+      const data = { marca: selectedBrand, btu: Number(document.getElementById('e-b').value), modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: cId };
       if (id) await db.equipamentos.update(id, data); else await db.equipamentos.add({ ...data, proximaManutencao: new Date() });
       closeModal(); renderDashboard();
     };
