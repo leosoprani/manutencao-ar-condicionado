@@ -84,19 +84,15 @@ async function renderDashboard(searchTerm = '') {
   try {
     const tech = localStorage.getItem('jampa_tech_name') || 'Técnico';
     const av = localStorage.getItem('jampa_tech_avatar') || 'Felix';
-    const appN = localStorage.getItem('jampa_app_name') || 'AR JAMPA';
     if (document.getElementById('display-user-name')) document.getElementById('display-user-name').textContent = tech;
     const img = document.querySelector('.user-profile img'); if (img) img.src = getAvatarUrl(av);
-    
     headerContent.innerHTML = `<div style="display: flex; flex-direction: column; gap: 15px; width: 100%;"><h2 style="font-size: 24px; margin:0; font-weight:800; letter-spacing:-1px;">Agenda</h2><div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="main-search" placeholder="Buscar cliente..." value="${searchTerm}"></div></div>`;
     const sInp = document.getElementById('main-search'); if (sInp) sInp.oninput = (e) => renderDashboard(e.target.value);
-
     let html = '';
     const lastB = localStorage.getItem('last_jampa_backup');
     if (!lastB || (Date.now() - Number(lastB) > 604800000)) {
       html += `<div class="card animate-in" style="background: rgba(255, 94, 0, 0.08); border: 1px solid #ff5e00; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; padding: 20px;"><span class="material-symbols-rounded" style="color: #ff5e00; font-size: 24px;">cloud_upload</span><div style="flex:1;"><p style="margin:0; font-size:11px; font-weight:700; color:#ff5e00;">BACKUP PENDENTE</p></div><button onclick="window.exportData()" style="background:#ff5e00; color:black; border:none; padding:8px 15px; border-radius:10px; font-size:10px; font-weight:900;">SALVAR</button></div>`;
     }
-
     const eqs = await db.equipamentos.toArray();
     const sorted = eqs.sort((a,b) => new Date(a.proximaManutencao) - new Date(b.proximaManutencao));
     html += '<div class="dashboard-grid animate-in">';
@@ -115,20 +111,18 @@ async function renderBairros(searchTerm = '') {
   try {
     headerContent.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="font-size: 22px; margin:0;">CADASTRAR</h2>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-primary" id="b-n-b" style="width:auto; font-size:9px; padding: 8px 12px; background:#1e293b; color:var(--primary); border:1px solid var(--primary);">+ NOVO BAIRRO</button>
-            <button class="btn-primary" id="b-n-u" style="width:auto; font-size:9px; padding: 8px 12px;">+ CLIENTE / PROPRIEDADE</button>
-          </div>
-        </div>
+        <h2 style="font-size: 22px; margin:0;">CADASTRAR</h2>
         <div class="search-box"><span class="material-symbols-rounded">search</span><input type="text" id="bairro-search" placeholder="Buscar..." value="${searchTerm}"></div>
+        <div style="display: flex; gap: 10px; padding: 0 0 10px;">
+          <button class="btn-primary" id="b-n-b" style="flex:1; font-size:10px; background:#1e293b; color:var(--primary); border:1px solid var(--primary);">+ NOVO BAIRRO</button>
+          <button class="btn-primary" id="b-n-u" style="flex:1; font-size:10px;">+ CLIENTE / PROPRIEDADE</button>
+        </div>
       </div>`;
     
     document.getElementById('b-n-b').onclick = () => renderBairroForm();
     document.getElementById('b-n-u').onclick = () => {
       openModal('Novo Cliente / Propriedade');
-      modalBody.innerHTML = '<p style="font-size:12px; opacity:0.6; margin-bottom:15px;">Escolha o Edifício abaixo:</p><div id="quick-buildings" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>';
+      modalBody.innerHTML = '<p style="font-size:12px; opacity:0.6; margin-bottom:15px;">Escolha o Bairro:</p><div id="quick-buildings" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>';
       db.bairros.toArray().then(bs => {
         const qb = document.getElementById('quick-buildings');
         bs.forEach(b => {
