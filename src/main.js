@@ -14,7 +14,7 @@ const fabAdd = document.getElementById('fab-add');
 const avatar = document.querySelector('.user-profile');
 const btnNotif = document.getElementById('btn-notifications');
 
-const marcas = ['LG', 'Samsung', 'Gree', 'Midea', 'Springer', 'Carrier', 'Fujitsu', 'Daikin', 'Electrolux', 'Philco', 'Consul'];
+const marcas = ['Elgin', 'LG', 'Samsung', 'Gree', 'Midea', 'Springer', 'Carrier', 'Fujitsu', 'Daikin', 'Electrolux', 'Philco', 'Consul'];
 const btus = [9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000];
 
 // Helper Functions
@@ -40,7 +40,7 @@ if (btnNotif) btnNotif.onclick = () => {
 const getLogo = (m) => {
   if (m === 'Springer') return 'https://www.mideaspringer.com.br/wp-content/themes/midea-springer/assets/img/logo-springer.png';
   if (m === 'Electrolux') return 'https://seeklogo.com/images/E/electrolux-logo-C727D95781-seeklogo.com.png';
-  const domainMap = { 'LG': 'lg.com', 'Samsung': 'samsung.com', 'Gree': 'gree.com.br', 'Midea': 'midea.com.br', 'Carrier': 'carrier.com', 'Fujitsu': 'fujitsu-general.com', 'Daikin': 'daikin.com.br', 'Philco': 'philco.com.br', 'Consul': 'consul.com.br' };
+  const domainMap = { 'Elgin': 'elgin.com.br',  'LG': 'lg.com', 'Samsung': 'samsung.com', 'Gree': 'gree.com.br', 'Midea': 'midea.com.br', 'Carrier': 'carrier.com', 'Fujitsu': 'fujitsu-general.com', 'Daikin': 'daikin.com.br', 'Philco': 'philco.com.br', 'Consul': 'consul.com.br' };
   const domain = domainMap[m] || 'google.com';
   return `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
 };
