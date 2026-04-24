@@ -142,7 +142,7 @@ async function renderDashboard(sortBy = 'proximas') {
 }
 
 async function renderBairros() {
-  headerContent.innerHTML = '<h2 style="font-size:22px;">ZONAS DE ATENDIMENTO</h2><p style="font-size:11px; opacity:0.5;">Gestão operacional</p>';
+  headerContent.innerHTML = '<h2 style="font-size:22px;">CADASTRAR</h2><p style="font-size:11px; opacity:0.5;">Gerencie seus registros</p>';
   const bairros = await db.bairros.toArray();
   const today = new Date();
   let html = '<div style="display: flex; gap: 10px; margin-bottom: 25px;"><button class="btn-primary" id="b-n-b" style="flex: 1;">+ NOVO BAIRRO</button><button class="btn-primary" id="b-n-p" style="flex: 1; background: #1e293b; color: var(--primary);">+ PROPRIEDADE</button></div><div class="dashboard-grid animate-in">';

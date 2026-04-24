@@ -96,3 +96,8 @@ h1, h2, h3, h4 { font-family: 'Montserrat', sans-serif; font-weight: 700; letter
 
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .animate-in { animation: slideUp 0.4s ease-out; }
+/* Force clean scroll logic */
+.content-area { overflow: visible !important; height: auto !important; }
+.dashboard-grid { overflow: visible !important; height: auto !important; }
+.card { overflow: visible !important; height: auto !important; }
+html, body { overflow-x: hidden; overflow-y: auto; height: auto; }
