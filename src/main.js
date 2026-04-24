@@ -103,20 +103,44 @@ async function renderHistorico() {
 async function renderBairroDetail(bId, from = 'home') {
   const b = await db.bairros.get(Number(bId));
   const cs = await db.clientes.where('bairroId').equals(Number(bId)).toArray();
-  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Lista de Clientes</p></div></div>`;
-  let html = '<div class="animate-in">';
+  headerContent.innerHTML = `<div style="display: flex; align-items: center; gap: 15px;"><button class="icon-btn" onclick="${from === 'bairros' ? 'window.renderBairros()' : 'window.renderDashboard()'}"><span class="material-symbols-rounded">arrow_back</span></button><div><h2 style="font-size:20px;">${b.nome}</h2><p style="font-size:11px; opacity:0.6;">Gestão de Unidades</p></div></div>`;
+  let html = '<div class="animate-in" style="display: flex; flex-direction: column; gap: 15px;">';
   for (const c of cs) {
     const es = await db.equipamentos.where('clienteId').equals(c.id).toArray();
     html += `
-      <div class="card" style="background: var(--surface-container); padding: 20px; border: 1px solid var(--glass-border);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <div><h3 style="margin: 0; font-size: 17px;">${c.nome}</h3><p style="font-size:11px; opacity:0.5;">${c.endereco}</p></div>
-          <a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366;"><span class="material-symbols-rounded">chat</span></a>
+      <div class="card" style="border-top: 4px solid var(--primary);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+          <div>
+            <h3 style="margin: 0; font-size: 18px; color: white;">${c.nome}</h3>
+            <p style="font-size:11px; opacity:0.5; font-weight:700; text-transform:uppercase; margin-top:4px;">PROPRIETÁRIO • ${c.endereco || 'Unidade Geral'}</p>
+          </div>
+          <a href="https://wa.me/${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="icon-btn" style="color: #25D366; background: rgba(37,211,102,0.1); border:none;"><span class="material-symbols-rounded">chat</span></a>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-          ${es.map(e => `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center; border: 1px solid var(--glass-border);"><img src="${getLogo(e.marca)}" style="width: 24px; height:24px; object-fit:contain;" /><p style="font-size: 9px; margin: 5px 0; font-weight:800;">${e.localizacao}</p><button class="icon-btn q-m" data-id="${e.id}" style="width:30px; height:30px; margin: 0 auto; background:var(--primary); color:black;"><span class="material-symbols-rounded" style="font-size: 16px;">build</span></button></div>`).join('')}
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          ${es.map(e => {
+            const diff = Math.ceil((new Date(e.proximaManutencao) - new Date()) / 86400000);
+            return `
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="width:36px; height:36px; background:white; border-radius:8px; padding:6px;"><img src="${getLogo(e.marca)}" style="width: 100%; height:100%; object-fit:contain;" /></div>
+                <div style="flex:1;">
+                   <h4 style="margin:0; font-size:14px;">${e.localizacao}</h4>
+                   <p style="font-size:10px; opacity:0.5; font-weight:600;">${e.btu} BTU • ${e.modelo || 'S/M'}</p>
+                </div>
+                <div style="text-align:right;">
+                   <p style="font-size:9px; font-weight:800; color:${diff <= 2 ? '#ff5e00' : 'var(--primary)'};">${diff <= 0 ? 'VENCIDO' : 'FALTAM ' + diff + ' DIAS'}</p>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn-primary q-m" data-id="${e.id}" style="flex:1; padding: 10px; font-size: 11px;">MANUTENÇÃO</button>
+                <button class="icon-btn" onclick="window.renderEquipmentForm(${e.id}, ${c.id})" style="width:38px; height:38px;"><span class="material-symbols-rounded" style="font-size:18px;">edit</span></button>
+                <button class="icon-btn" onclick="window.deleteEquipment(${e.id})" style="width:38px; height:38px; color:var(--accent);"><span class="material-symbols-rounded" style="font-size:18px;">delete</span></button>
+              </div>
+            </div>`;
+          }).join('')}
         </div>
-        <button class="btn-primary" style="margin-top: 20px; width:100%; box-shadow: 0 5px 15px rgba(0,0,0,0.2);" onclick="window.renderEquipmentForm(null, ${c.id})">+ CADASTRAR NOVO AR</button>
+        <button class="btn-primary" style="margin-top: 20px; width:100%; background: #1e293b; color: var(--primary); font-size:11px;" onclick="window.renderEquipmentForm(null, ${c.id})">+ ADICIONAR NOVO AR NESTA UNIDADE</button>
       </div>`;
   }
   mainContent.innerHTML = html + '</div>';
@@ -125,37 +149,45 @@ async function renderBairroDetail(bId, from = 'home') {
 
 async function renderEquipmentForm(id = null, preCId = null) {
   const eq = id ? await db.equipamentos.get(id) : null;
-  openModal(id ? 'Editar Ar' : 'Novo Ar');
+  openModal(id ? 'Editar Equipamento' : 'Novo Equipamento');
   let sB = eq?.marca || 'Samsung';
   const r = () => {
     modalBody.innerHTML = `
       <form id="f-e">
-        <label style="font-size:10px; font-weight:800; color:var(--primary); margin-bottom:12px; display:block; text-transform:uppercase;">Escolha a Marca</label>
         <div class="brand-grid" style="margin-bottom: 20px;">
           ${marcas.map(m => `<div class="brand-item ${sB === m ? 'active' : ''}" data-brand="${m}" style="padding: 10px; border-radius: 12px; background: white; text-align: center; cursor: pointer; border: 2.5px solid ${sB === m ? 'var(--primary)' : 'transparent'};"><img src="${getLogo(m)}" style="width: 100%; height: 24px; object-fit: contain;" /><p style="font-size: 8px; color: #333; font-weight: 800; margin: 4px 0 0;">${m}</p></div>`).join('')}
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px;">
-           <div class="form-group"><label>Capacidade (BTU)</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
-           <div class="form-group"><label>Unidade / Apt</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Sala 201"></div>
+           <div class="form-group"><label>Capacidade</label><select id="e-b" class="form-control">${btus.map(b => `<option value="${b}" ${eq?.btu == b ? 'selected' : ''}>${b} BTU</option>`).join('')}</select></div>
+           <div class="form-group"><label>Unidade / Apt</label><input type="text" id="e-u" class="form-control" value="${eq?.unidade || ''}" placeholder="Ex: Apt 202"></div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px;">
-           <div class="form-group"><label>Potência (W / A)</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}" placeholder="Ex: 1500W"></div>
+           <div class="form-group"><label>Potência</label><input type="text" id="e-p" class="form-control" value="${eq?.potencia || ''}" placeholder="Ex: 1500W"></div>
            <div class="form-group"><label>Modelo / Ref</label><input type="text" id="e-m" class="form-control" value="${eq?.modelo || ''}" placeholder="Ex: Inverter"></div>
         </div>
-        <div class="form-group" style="margin-top:10px;"><label>Localização</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Quarto"></div>
-        <button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">SALVAR APARELHO</button>
+        <div class="form-group" style="margin-top:10px;"><label>Localização</label><input type="text" id="e-l" class="form-control" value="${eq?.localizacao || ''}" placeholder="Ex: Sala"></div>
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:25px;">SALVAR ALTERAÇÕES</button>
       </form>`;
     document.querySelectorAll('.brand-item').forEach(i => i.onclick = () => { sB = i.dataset.brand; r(); });
     document.getElementById('f-e').onsubmit = async (e) => {
       e.preventDefault();
       const d = { marca: sB, btu: Number(document.getElementById('e-b').value), potencia: document.getElementById('e-p').value, modelo: document.getElementById('e-m').value, localizacao: document.getElementById('e-l').value, unidade: document.getElementById('e-u').value, clienteId: preCId || eq?.clienteId };
       if (id) await db.equipamentos.update(id, d); else await db.equipamentos.add({ ...d, proximaManutencao: new Date() });
-      closeModal(); if (preCId) renderBairroDetail(preCId, 'bairros'); else renderDashboard();
+      closeModal(); renderBairroDetail(preCId, 'bairros');
     };
   };
   r();
 }
 
+window.deleteEquipment = async (id) => {
+  if (confirm('Deseja realmente excluir este aparelho?')) {
+    const eq = await db.equipamentos.get(id);
+    await db.equipamentos.delete(id);
+    renderBairroDetail(eq.clienteId, 'bairros'); // refresh
+  }
+};
+
+// ... other functions (maintenance, bairros, etc) ...
 async function renderMaintenanceForm(eqId = null) {
   const eqs = await db.equipamentos.toArray();
   const cls = await db.clientes.toArray();
@@ -187,6 +219,30 @@ async function renderMaintenanceForm(eqId = null) {
     };
   };
   r();
+}
+
+async function renderBairroForm() {
+  openModal('Novo Bairro');
+  modalBody.innerHTML = '<form id="f-b"><div class="form-group"><label>Nome</label><input type="text" id="b-n" class="form-control" required></div><div class="form-group"><label>Cor</label><input type="color" id="b-c" class="form-control" value="#00f2ff"></div><button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">CADASTRAR</button></form>';
+  document.getElementById('f-b').onsubmit = async (e) => { e.preventDefault(); await db.bairros.add({ nome: document.getElementById('b-n').value, cor: document.getElementById('b-c').value }); closeModal(); renderBairros(); };
+}
+
+async function renderPropertyForm() {
+  const brs = await db.bairros.toArray();
+  openModal('Nova Propriedade');
+  modalBody.innerHTML = `
+    <form id="f-p">
+      <div class="form-group"><label>Nome</label><input type="text" id="p-n" class="form-control" required></div>
+      <div class="form-group"><label>Bairro</label><select id="p-b" class="form-control">${brs.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Endereço</label><input type="text" id="p-e" class="form-control" required></div>
+      <div class="form-group"><label>WhatsApp</label><input type="text" id="p-w" class="form-control" value="(83) 9" required></div>
+      <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">SALVAR</button>
+    </form>`;
+  document.getElementById('f-p').onsubmit = async (e) => {
+    e.preventDefault();
+    await db.clientes.add({ nome: document.getElementById('p-n').value, bairroId: Number(document.getElementById('p-b').value), endereco: document.getElementById('p-e').value, whatsapp: document.getElementById('p-w').value, telefone: '(83) 9' });
+    closeModal(); renderBairros();
+  };
 }
 
 function renderMais() {
